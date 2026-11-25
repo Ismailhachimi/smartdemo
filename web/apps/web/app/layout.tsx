@@ -1,6 +1,11 @@
 import type { Metadata, Viewport } from "next";
+import { Bricolage_Grotesque, Instrument_Sans, JetBrains_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
+
+const ui = Instrument_Sans({ subsets: ["latin"], variable: "--font-ui", display: "swap" });
+const title = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-title", display: "swap" });
+const code = JetBrains_Mono({ subsets: ["latin"], variable: "--font-code", display: "swap" });
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.APP_URL ?? "http://localhost:3000"),
@@ -10,14 +15,14 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f6f6f9" },
-    { media: "(prefers-color-scheme: dark)", color: "#0e0f14" },
+    { media: "(prefers-color-scheme: light)", color: "#f6f5f1" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e0d11" },
   ],
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="fr">
+    <html lang="fr" className={`${ui.variable} ${title.variable} ${code.variable}`}>
       <body className="min-h-dvh">{children}</body>
     </html>
   );

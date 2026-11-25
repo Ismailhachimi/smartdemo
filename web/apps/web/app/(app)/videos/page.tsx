@@ -1,14 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { CopyButton, ErrorNote, Spinner } from "@/components/ui";
+import { useEffect, useMemo, useState } from "react";
+import { IconEye, IconFilm, IconLink, IconSearch } from "@/components/icons";
+import { CopyButton, Empty, ErrorNote, PageHeader, Spinner, Thumb, Viewfinder } from "@/components/ui";
 import { api, type VideoListItem } from "@/lib/api";
-import { formatDuration, timeAgo } from "@/lib/format";
+import { plural, timeAgo } from "@/lib/format";
+
+type Sort = "recent" | "viewed" | "lastView";
+const SORTS: { value: Sort; label: string }[] = [
+  { value: "recent", label: "Plus récentes" },
+  { value: "lastView", label: "Vues récemment" },
+  { value: "viewed", label: "Plus vues" },
+];
 
 export default function VideosPage() {
   const [videos, setVideos] = useState<VideoListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<Sort>("recent");
 
   useEffect(() => {
     api<{ videos: VideoListItem[] }>("/videos")
@@ -16,78 +26,110 @@ export default function VideosPage() {
       .catch((err: Error) => setError(err.message));
   }, []);
 
+  const shown = useMemo(() => {
+    if (!videos) return [];
+    const q = query.trim().toLowerCase();
+    const list = q ? videos.filter((v) => v.title.toLowerCase().includes(q)) : [...videos];
+    if (sort === "viewed") list.sort((a, b) => b.opens - a.opens);
+    if (sort === "lastView") list.sort((a, b) => (b.lastViewAt ?? "").localeCompare(a.lastViewAt ?? ""));
+    return list;
+  }, [videos, query, sort]);
+
   if (error) return <ErrorNote>{error}</ErrorNote>;
   if (!videos) return <Spinner />;
 
   return (
     <div>
-      <div className="mb-6 flex items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Vidéos</h1>
-          <p className="mt-1 text-sm text-ink-2">
-            {videos.length ? `${videos.length} vidéo${videos.length > 1 ? "s" : ""}` : "Envoie ta première vidéo depuis l'app Mac."}
-          </p>
-        </div>
-      </div>
+      <PageHeader title="Vidéos" description={videos.length ? plural(videos.length, "enregistrement") : "Tes enregistrements envoyés depuis l'app Mac."} />
 
       {videos.length === 0 ? (
-        <EmptyState />
+        <Empty
+          icon={<IconFilm />}
+          title="Aucune vidéo pour l'instant"
+          action={
+            <Link href="/settings#mac" className="btn-primary">
+              Connecter l&apos;app Mac
+            </Link>
+          }
+        >
+          Enregistre une démo avec SmartDemo (⌃⌥R), puis choisis « Envoyer la dernière vidéo » dans le menu Partage.
+        </Empty>
       ) : (
-        <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {videos.map((v) => (
-            <li key={v.id} className="card group overflow-hidden">
-              <Link href={`/videos/${v.id}`} className="block">
-                <div className="relative aspect-video bg-surface-2">
-                  {v.hasThumbnail ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={`/api/videos/${v.id}/thumbnail?v=${encodeURIComponent(v.updatedAt)}`}
-                      alt=""
-                      className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                    />
-                  ) : (
-                    <div className="flex size-full items-center justify-center text-3xl text-ink-3">▶</div>
-                  )}
-                  {v.durationSec != null && (
-                    <span className="absolute right-2 bottom-2 rounded-md bg-black/70 px-1.5 py-0.5 text-xs font-medium text-white tabular-nums">
-                      {formatDuration(v.durationSec)}
-                    </span>
-                  )}
-                </div>
-                <div className="px-4 pt-3">
-                  <h2 className="truncate font-medium">{v.title}</h2>
-                  <p className="mt-0.5 text-xs text-ink-2">
-                    {timeAgo(v.createdAt)} · {v.opens} vue{v.opens > 1 ? "s" : ""}
-                    {v.lastViewAt ? ` · vue ${timeAgo(v.lastViewAt)}` : ""}
-                  </p>
-                </div>
-              </Link>
-              <div className="flex gap-2 px-4 pt-3 pb-4">
-                {v.shareUrl && <CopyButton text={v.shareUrl} className="btn-ghost flex-1 py-1.5 text-xs" />}
-                <Link href={`/videos/${v.id}`} className="btn-ghost flex-1 py-1.5 text-xs">
-                  Statistiques
-                </Link>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <>
+          <div className="mb-6 flex flex-wrap items-center gap-3">
+            <label className="relative min-w-56 flex-1 sm:max-w-xs">
+              <span className="sr-only">Rechercher</span>
+              <IconSearch className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-3" />
+              <input className="input pl-9" placeholder="Rechercher une vidéo" value={query} onChange={(e) => setQuery(e.target.value)} />
+            </label>
+            <div className="flex rounded-lg border border-border bg-surface p-0.5" role="radiogroup" aria-label="Trier">
+              {SORTS.map((s) => (
+                <button
+                  key={s.value}
+                  role="radio"
+                  aria-checked={sort === s.value}
+                  onClick={() => setSort(s.value)}
+                  className={`h-7 cursor-pointer rounded-md px-2.5 text-xs font-medium transition-colors ${
+                    sort === s.value ? "bg-surface-3 text-ink" : "text-ink-2 hover:text-ink"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {shown.length === 0 ? (
+            <p className="py-16 text-center text-ink-2">Aucune vidéo ne correspond à « {query} ».</p>
+          ) : (
+            <ul className="grid gap-x-5 gap-y-8 sm:grid-cols-2 xl:grid-cols-3">
+              {shown.map((v) => (
+                <VideoCard key={v.id} video={v} />
+              ))}
+            </ul>
+          )}
+        </>
       )}
     </div>
   );
 }
 
-function EmptyState() {
+function VideoCard({ video: v }: { video: VideoListItem }) {
+  const recent = v.lastViewAt && Date.now() - new Date(v.lastViewAt).getTime() < 86_400_000;
   return (
-    <div className="card mx-auto max-w-xl p-8 text-center">
-      <div className="text-4xl">🎬</div>
-      <h2 className="mt-3 text-lg font-semibold">Aucune vidéo pour l&apos;instant</h2>
-      <ol className="mt-4 space-y-2 text-left text-sm text-ink-2">
-        <li>
-          1. Dans <Link href="/settings" className="text-brand hover:underline">Réglages</Link>, clique sur « Connecter l&apos;app Mac ».
-        </li>
-        <li>2. Enregistre une démo avec SmartDemo (⌃⌥R).</li>
-        <li>3. Dans le menu SmartDemo, choisis « Envoyer la dernière vidéo » : le lien de partage est copié.</li>
-      </ol>
-    </div>
+    <li className="group relative">
+      <Link href={`/videos/${v.id}`} className="block rounded-lg">
+        <Thumb
+          src={v.hasThumbnail ? `/api/videos/${v.id}/thumbnail?v=${encodeURIComponent(v.updatedAt)}` : null}
+          durationSec={v.durationSec}
+          className="ring-1 ring-border transition-shadow group-hover:shadow-[0_10px_30px_-12px_rgb(0_0_0/0.35)]"
+        >
+          <Viewfinder className="opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
+        </Thumb>
+        <h2 className="mt-3 truncate font-medium">{v.title}</h2>
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-ink-2">
+          <span>{timeAgo(v.createdAt)}</span>
+          <span className="flex items-center gap-1">
+            <IconEye className="size-3.5 text-ink-3" />
+            {plural(v.opens, "vue")}
+          </span>
+          <span className="flex items-center gap-1">
+            <IconLink className="size-3.5 text-ink-3" />
+            {plural(v.linkCount, "lien")}
+          </span>
+        </div>
+        {recent && v.lastViewAt && (
+          <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-rec">
+            <span className="size-1.5 rounded-full bg-rec" aria-hidden="true" />
+            Vue {timeAgo(v.lastViewAt)}
+          </div>
+        )}
+      </Link>
+      {v.shareUrl && (
+        <div className="absolute top-2 right-2 opacity-100 transition-opacity sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
+          <CopyButton text={v.shareUrl} iconOnly label="Copier le lien principal" className="btn-icon bg-black/60 text-white backdrop-blur hover:bg-black/80" />
+        </div>
+      )}
+    </li>
   );
 }

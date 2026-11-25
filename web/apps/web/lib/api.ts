@@ -51,6 +51,7 @@ export interface Video {
 export interface VideoListItem extends Video {
   opens: number;
   lastViewAt: string | null;
+  linkCount: number;
   shareUrl: string | null;
 }
 
@@ -104,3 +105,26 @@ export interface ApiToken {
   lastUsedAt: string | null;
   createdAt: string;
 }
+
+export interface ActivityView {
+  id: string;
+  startedAt: string;
+  lastSeenAt: string;
+  /** The viewer's player reported progress in the last two minutes. */
+  live: boolean;
+  watchedSec: number;
+  watched: number;
+  completed: boolean;
+  device: string;
+  video: { id: string; title: string; durationSec: number | null; hasThumbnail: boolean; updatedAt: string };
+  link: { id: string; label: string | null };
+}
+
+export interface Activity {
+  week: Stats;
+  previousWeek: Stats;
+  views: ActivityView[];
+}
+
+/** What a share link is called in the UI when it has no label. */
+export const linkName = (label: string | null | undefined) => label || "Lien principal";

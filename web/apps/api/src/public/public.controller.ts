@@ -80,9 +80,11 @@ export class PublicController {
   async meta(@Param("slug") slug: string) {
     const { link, video } = await this.resolve(slug);
     const locked = Boolean(link.passwordHash);
+    const [owner] = await this.db.select({ name: users.name }).from(users).where(eq(users.id, video.ownerId));
     return {
       slug,
       title: video.title,
+      senderName: owner?.name ?? null,
       durationSec: video.durationSec,
       width: video.width,
       height: video.height,

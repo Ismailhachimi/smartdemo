@@ -8,7 +8,7 @@ import { MailModule } from "./mail/mail.service.js";
 import { PublicController } from "./public/public.controller.js";
 import { StorageModule } from "./storage/storage.service.js";
 import { TokensController } from "./tokens/tokens.controller.js";
-import { SharesController, VideosController } from "./videos/videos.controller.js";
+import { ActivityController, SharesController, VideosController } from "./videos/videos.controller.js";
 import { VideosService } from "./videos/videos.service.js";
 
 @Controller("health")
@@ -21,7 +21,7 @@ class HealthController {
 
 @Module({
   imports: [DbModule, MailModule, StorageModule, ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }])],
-  controllers: [HealthController, AuthController, TokensController, VideosController, SharesController, PublicController],
+  controllers: [HealthController, AuthController, TokensController, VideosController, SharesController, ActivityController, PublicController],
   providers: [AuthService, AuthGuard, VideosService],
 })
 export class AppModule {}

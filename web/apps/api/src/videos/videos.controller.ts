@@ -177,6 +177,17 @@ export class SharesController {
   }
 }
 
+@Controller("activity")
+@UseGuards(AuthGuard)
+export class ActivityController {
+  constructor(private readonly videos: VideosService) {}
+
+  @Get()
+  async activity(@CurrentUser() user: AuthUser) {
+    return this.videos.activity(user.id);
+  }
+}
+
 export function mimeOf(key: string): string {
   if (key.endsWith(".png")) return "image/png";
   if (key.endsWith(".webp")) return "image/webp";

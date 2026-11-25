@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ErrorNote } from "@/components/ui";
+import { IconDownload, IconLock } from "@/components/icons";
+import { Avatar, ErrorNote } from "@/components/ui";
 import { api } from "@/lib/api";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDuration } from "@/lib/format";
 
 export interface ShareMeta {
   slug: string;
   title: string;
+  senderName: string | null;
   durationSec: number | null;
   width: number | null;
   height: number | null;
@@ -35,49 +37,96 @@ function viewerId(): string {
   }
 }
 
+/**
+ * One view per page load. The effect can run twice (React StrictMode, fast remounts), and two
+ * simultaneous requests would both pass the server's "same viewer, recent view" check.
+ */
+const viewRequests = new Map<string, Promise<string>>();
+function startView(slug: string, token: string): Promise<string> {
+  let p = viewRequests.get(slug);
+  if (!p) {
+    p = api<{ viewId: string }>(`/public/s/${slug}/views`, {
+      method: "POST",
+      json: { viewerId: viewerId(), t: token, referrer: document.referrer || null },
+    }).then((r) => r.viewId);
+    p.catch(() => viewRequests.delete(slug));
+    viewRequests.set(slug, p);
+  }
+  return p;
+}
+
 export function SharePlayer({ meta }: { meta: ShareMeta }) {
   const [token, setToken] = useState(meta.accessToken);
 
   return (
     <div>
-      <h1 className="mb-1 text-xl font-semibold tracking-tight sm:text-2xl">{meta.title}</h1>
-      <p className="mb-5 text-sm text-ink-2">{formatDate(meta.createdAt)}</p>
-      {token ? <Player meta={meta} token={token} /> : <Unlock slug={meta.slug} onUnlock={setToken} />}
+      <header className="mb-6 sm:mb-8">
+        {meta.senderName && (
+          <div className="mb-4 flex items-center gap-2.5 text-[13px] text-ink-2">
+            <Avatar name={meta.senderName} size={26} />
+            <span>
+              <strong className="font-medium text-ink">{meta.senderName}</strong> vous a envoyé une vidéo
+            </span>
+          </div>
+        )}
+        <h1 className="display text-[26px] sm:text-[36px]">{meta.title}</h1>
+        <p className="tc mt-2 text-xs text-ink-3">
+          {formatDate(meta.createdAt)}
+          {meta.durationSec ? ` · ${formatDuration(meta.durationSec)}` : ""}
+        </p>
+      </header>
+      {token ? <Player meta={meta} token={token} /> : <Unlock slug={meta.slug} sender={meta.senderName} onUnlock={setToken} />}
     </div>
   );
 }
 
-function Unlock({ slug, onUnlock }: { slug: string; onUnlock: (t: string) => void }) {
+function Unlock({ slug, sender, onUnlock }: { slug: string; sender: string | null; onUnlock: (t: string) => void }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setBusy(true);
     try {
       const r = await api<{ accessToken: string }>(`/public/s/${slug}/unlock`, { method: "POST", json: { password } });
       onUnlock(r.accessToken);
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setBusy(false);
     }
   }
 
   return (
-    <form onSubmit={submit} className="card mx-auto mt-10 max-w-sm space-y-4 p-6">
-      <div className="text-center text-3xl">🔒</div>
-      <p className="text-center text-sm text-ink-2">Cette vidéo est protégée par un mot de passe.</p>
-      <input
-        className="input"
-        type="password"
-        autoFocus
-        required
-        placeholder="Mot de passe"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
-      {error && <ErrorNote>{error}</ErrorNote>}
-      <button className="btn-primary w-full">Voir la vidéo</button>
-    </form>
+    <div className="flex aspect-video w-full items-center justify-center rounded-xl bg-surface ring-1 ring-white/10">
+      <form onSubmit={submit} className="w-full max-w-xs px-6 text-center">
+        <div className="mx-auto flex size-11 items-center justify-center rounded-full bg-surface-3 text-ink [&_svg]:size-5">
+          <IconLock />
+        </div>
+        <p className="mt-4 font-medium">Vidéo protégée</p>
+        <p className="mt-1 text-[13px] text-ink-2">
+          Saisissez le mot de passe communiqué par {sender ?? "l'expéditeur"}.
+        </p>
+        <div className="mt-5 flex gap-2">
+          <input
+            className="input h-10"
+            type="password"
+            autoFocus
+            required
+            aria-label="Mot de passe"
+            placeholder="Mot de passe"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <button className="btn-primary h-10" disabled={busy}>
+            Voir
+          </button>
+        </div>
+        {error && <div className="mt-3 text-left"><ErrorNote>{error}</ErrorNote></div>}
+      </form>
+    </div>
   );
 }
 
@@ -109,11 +158,8 @@ function Player({ meta, token }: { meta: ShareMeta; token: string }) {
       else fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body, keepalive: true }).catch(() => {});
     };
 
-    api<{ viewId: string }>(`/public/s/${meta.slug}/views`, {
-      method: "POST",
-      json: { viewerId: viewerId(), t: token, referrer: document.referrer || null },
-    })
-      .then((r) => (viewId = r.viewId))
+    startView(meta.slug, token)
+      .then((id) => (viewId = id))
       .catch(() => {});
 
     const onTime = () => {
@@ -160,7 +206,7 @@ function Player({ meta, token }: { meta: ShareMeta; token: string }) {
     <div>
       <video
         ref={videoRef}
-        className="w-full rounded-2xl border border-border bg-black shadow-xl"
+        className="w-full rounded-xl bg-black shadow-[0_30px_80px_-20px_rgb(0_0_0/0.8)] ring-1 ring-white/10"
         style={{ aspectRatio: aspect }}
         src={`${base}/stream?t=${encodeURIComponent(token)}`}
         poster={meta.hasThumbnail ? `${base}/thumbnail` : undefined}
@@ -169,10 +215,10 @@ function Player({ meta, token }: { meta: ShareMeta; token: string }) {
         preload="metadata"
       />
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-ink-3">La lecture est mesurée de façon anonyme pour l&apos;auteur de la vidéo.</p>
+        <p className="text-xs text-ink-3">L&apos;expéditeur voit si la vidéo a été lue, de façon anonyme.</p>
         {meta.allowDownload && (
-          <a className="btn-ghost" href={`${base}/download?t=${encodeURIComponent(token)}`}>
-            Télécharger
+          <a className="btn-secondary" href={`${base}/download?t=${encodeURIComponent(token)}`}>
+            <IconDownload /> Télécharger
           </a>
         )}
       </div>

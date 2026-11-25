@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { RETENTION_BUCKETS, shareLinks, videos, views, type ShareLink, type Video } from "@smartdemo/db";
-import { and, asc, count, desc, eq, getTableColumns, inArray, max } from "drizzle-orm";
+import { and, asc, count, desc, eq, getTableColumns, gte, inArray, max } from "drizzle-orm";
 import { hashPassword, randomSlug } from "../common/crypto.js";
 import { InjectDb, type Database } from "../common/db.module.js";
 import { env } from "../env.js";
@@ -17,6 +17,12 @@ export interface ShareInput {
 }
 
 export const shareUrl = (slug: string) => `${env.APP_URL}/v/${slug}`;
+
+const DAY_MS = 86_400_000;
+/** A viewer whose player reported progress this recently is "watching now". */
+const LIVE_MS = 2 * 60_000;
+
+const watchedShare = (buckets: number[]) => Math.min(1, new Set(buckets).size / RETENTION_BUCKETS);
 
 @Injectable()
 export class VideosService {
@@ -48,14 +54,21 @@ export class VideosService {
       .orderBy(desc(videos.createdAt));
     const links = rows.length
       ? await this.db
-          .select({ videoId: shareLinks.videoId, slug: shareLinks.slug })
+          .select({ videoId: shareLinks.videoId, slug: shareLinks.slug, disabled: shareLinks.disabled })
           .from(shareLinks)
-          .where(and(inArray(shareLinks.videoId, rows.map((r) => r.id)), eq(shareLinks.disabled, false)))
+          .where(inArray(shareLinks.videoId, rows.map((r) => r.id)))
           .orderBy(asc(shareLinks.createdAt))
       : [];
     return rows.map(({ opens, lastViewAt, ...v }) => {
-      const first = links.find((l) => l.videoId === v.id);
-      return { ...this.toDto(v), opens: Number(opens ?? 0), lastViewAt, shareUrl: first ? shareUrl(first.slug) : null };
+      const own = links.filter((l) => l.videoId === v.id);
+      const first = own.find((l) => !l.disabled);
+      return {
+        ...this.toDto(v),
+        opens: Number(opens ?? 0),
+        lastViewAt,
+        linkCount: own.length,
+        shareUrl: first ? shareUrl(first.slug) : null,
+      };
     });
   }
 
@@ -85,10 +98,52 @@ export class VideosService {
         linkLabel: links.find((l) => l.id === v.shareLinkId)?.label ?? null,
         startedAt: v.startedAt,
         watchedSec: Math.round(v.watchedSec),
-        watched: Math.min(1, new Set(v.buckets).size / RETENTION_BUCKETS),
+        watched: watchedShare(v.buckets),
         completed: v.completed,
         device: describeUserAgent(v.userAgent),
         referrer: v.referrer,
+      })),
+    };
+  }
+
+  /** Views across all of the user's videos: this week vs last week, and the latest views. */
+  async activity(userId: string) {
+    const now = Date.now();
+    const recent = await this.db
+      .select({ viewerId: views.viewerId, watchedSec: views.watchedSec, completed: views.completed, buckets: views.buckets, startedAt: views.startedAt })
+      .from(views)
+      .innerJoin(videos, eq(videos.id, views.videoId))
+      .where(and(eq(videos.ownerId, userId), gte(views.startedAt, new Date(now - 14 * DAY_MS))));
+    const thisWeek = recent.filter((r) => r.startedAt.getTime() >= now - 7 * DAY_MS);
+    const lastWeek = recent.filter((r) => r.startedAt.getTime() < now - 7 * DAY_MS);
+
+    const rows = await this.db
+      .select({
+        view: views,
+        video: { id: videos.id, title: videos.title, durationSec: videos.durationSec, thumbnailKey: videos.thumbnailKey, updatedAt: videos.updatedAt },
+        link: { id: shareLinks.id, label: shareLinks.label },
+      })
+      .from(views)
+      .innerJoin(videos, eq(videos.id, views.videoId))
+      .innerJoin(shareLinks, eq(shareLinks.id, views.shareLinkId))
+      .where(eq(videos.ownerId, userId))
+      .orderBy(desc(views.lastSeenAt))
+      .limit(100);
+
+    return {
+      week: computeStats(thisWeek),
+      previousWeek: computeStats(lastWeek),
+      views: rows.map(({ view: v, video, link }) => ({
+        id: v.id,
+        startedAt: v.startedAt,
+        lastSeenAt: v.lastSeenAt,
+        live: now - v.lastSeenAt.getTime() < LIVE_MS && !v.completed,
+        watchedSec: Math.round(v.watchedSec),
+        watched: watchedShare(v.buckets),
+        completed: v.completed,
+        device: describeUserAgent(v.userAgent),
+        video: { id: video.id, title: video.title, durationSec: video.durationSec, hasThumbnail: Boolean(video.thumbnailKey), updatedAt: video.updatedAt },
+        link: { id: link.id, label: link.label },
       })),
     };
   }

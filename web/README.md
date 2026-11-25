@@ -113,6 +113,7 @@ All routes are under `/api`. Authenticated routes accept the session cookie or
 | POST | `/auth/verify` | `{ token }` → session cookie |
 | GET / PATCH | `/auth/me` | Current user / update name |
 | GET / POST / DELETE | `/tokens` | Personal access tokens |
+| GET | `/activity` | Views across all videos: this week vs last week, latest views, who is watching now |
 | POST | `/videos?title=&durationSec=&width=&height=` | Raw video body (`Content-Type: video/mp4`) → video + first share link |
 | PUT | `/videos/:id/thumbnail` | Raw JPEG/PNG/WebP body |
 | GET / PATCH / DELETE | `/videos/:id` | Details with stats, rename, delete |

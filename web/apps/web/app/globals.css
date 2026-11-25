@@ -1,68 +1,163 @@
 @import "tailwindcss";
 
-/* Design tokens. Dark mode follows the OS. */
+/*
+ * SmartDemo design tokens.
+ * Warm neutrals, ink-black actions, the icon's violet for data and focus, its amber for the
+ * viewfinder motif and its red for anything live. The app follows the OS theme; the public
+ * share page is always dark (`.stage`).
+ */
 @theme {
-  --color-bg: #f6f6f9;
+  --color-bg: #f6f5f1;
   --color-surface: #ffffff;
-  --color-surface-2: #f1f1f5;
-  --color-border: #e4e4ea;
-  --color-ink: #1b1d29;
-  --color-ink-2: #565a6e;
-  --color-ink-3: #8a8ea0;
-  --color-brand: #4f46e5;
-  --color-brand-2: #4338ca;
-  --color-brand-soft: #eef0ff;
-  --color-good: #15803d;
-  --color-danger: #c62828;
-  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
-}
+  --color-surface-2: #efede8;
+  --color-surface-3: #e6e3dc;
+  --color-border: #e2dfd7;
+  --color-border-strong: #cfcbc1;
+  --color-ink: #17161b;
+  --color-ink-2: #5e5b64;
+  --color-ink-3: #8e8a93;
+  --color-on-ink: #ffffff;
+  --color-brand: #5b3ff0;
+  --color-brand-2: #4a2fdc;
+  --color-brand-soft: #ece8fe;
+  --color-amber: #e9a514;
+  --color-rec: #e5343f;
+  --color-good: #1d8049;
+  --color-danger: #c42e36;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #0e0f14;
-    --color-surface: #171821;
-    --color-surface-2: #1f2130;
-    --color-border: #2a2c3b;
-    --color-ink: #ecedf3;
-    --color-ink-2: #a9adc0;
-    --color-ink-3: #767b90;
-    --color-brand: #7c74ff;
-    --color-brand-2: #948dff;
-    --color-brand-soft: #23244a;
-    --color-good: #4ade80;
-    --color-danger: #f87171;
+  --font-sans: var(--font-ui), ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: var(--font-title), var(--font-ui), ui-sans-serif, sans-serif;
+  --font-mono: var(--font-code), ui-monospace, "SF Mono", Menlo, monospace;
+
+  --animate-rec: rec 1.6s ease-in-out infinite;
+  @keyframes rec {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
   }
 }
 
-html {
-  color-scheme: light dark;
+@layer base {
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-bg: #0e0d11;
+      --color-surface: #16151a;
+      --color-surface-2: #1d1c22;
+      --color-surface-3: #26242c;
+      --color-border: #29272f;
+      --color-border-strong: #3a3741;
+      --color-ink: #f2f0f5;
+      --color-ink-2: #a8a4b0;
+      --color-ink-3: #75717e;
+      --color-on-ink: #0e0d11;
+      --color-brand: #8f7dff;
+      --color-brand-2: #a597ff;
+      --color-brand-soft: #221c43;
+      --color-amber: #f4b83a;
+      --color-rec: #ff4d58;
+      --color-good: #4cc47e;
+      --color-danger: #ff6b72;
+    }
+  }
+
+  /* The prospect-facing page: always a dark screening room. */
+  .stage {
+    --color-bg: #09080b;
+    --color-surface: #141318;
+    --color-surface-2: #1c1b21;
+    --color-surface-3: #25232b;
+    --color-border: #2a2830;
+    --color-border-strong: #3b3842;
+    --color-ink: #f4f2f7;
+    --color-ink-2: #aaa6b2;
+    --color-ink-3: #77737f;
+    --color-on-ink: #09080b;
+    --color-brand: #8f7dff;
+    --color-brand-2: #a597ff;
+    --color-amber: #f4b83a;
+    --color-rec: #ff4d58;
+    --color-danger: #ff6b72;
+    color-scheme: dark;
+  }
+
+  html {
+    color-scheme: light dark;
+  }
+
+  body {
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-brand) 30%, transparent);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
 }
 
-body {
-  background: var(--color-bg);
-  color: var(--color-ink);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
+/* ---- Type -------------------------------------------------------------------------------- */
+
+@utility display {
+  font-family: var(--font-display);
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+@utility eyebrow {
+  @apply text-[11px] font-medium tracking-[0.08em] text-ink-3 uppercase;
+}
+@utility tc {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
-@utility card {
-  @apply rounded-2xl border border-border bg-surface;
+/* ---- Surfaces ---------------------------------------------------------------------------- */
+
+@utility panel {
+  @apply rounded-xl border border-border bg-surface;
 }
+
+/* ---- Controls ---------------------------------------------------------------------------- */
+
 @utility btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-lg px-3.5 text-[13px] font-medium whitespace-nowrap transition-[background-color,color,border-color,box-shadow] select-none disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0;
 }
 @utility btn-primary {
+  @apply btn bg-ink text-on-ink hover:bg-ink/85;
+}
+@utility btn-accent {
   @apply btn bg-brand text-white hover:bg-brand-2;
 }
+@utility btn-secondary {
+  @apply btn border border-border bg-surface text-ink shadow-[0_1px_0_rgb(0_0_0/0.03)] hover:border-border-strong hover:bg-surface-2;
+}
 @utility btn-ghost {
-  @apply btn border border-border bg-surface text-ink hover:bg-surface-2;
+  @apply btn text-ink-2 hover:bg-surface-2 hover:text-ink;
 }
 @utility btn-danger {
-  @apply btn border border-border bg-surface text-danger hover:bg-surface-2;
+  @apply btn text-danger hover:bg-danger/10;
 }
+@utility btn-sm {
+  @apply h-8 gap-1.5 rounded-md px-2.5 text-xs [&_svg]:size-3.5;
+}
+@utility btn-icon {
+  @apply btn size-8 rounded-md px-0;
+}
+
 @utility input {
-  @apply w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand/20;
+  @apply h-9 w-full rounded-lg border border-border bg-surface px-3 text-[13px] text-ink transition-[border-color,box-shadow] outline-none placeholder:text-ink-3 hover:border-border-strong focus:border-brand focus:ring-3 focus:ring-brand/15;
 }
 @utility label {
   @apply mb-1.5 block text-xs font-medium text-ink-2;
+}
+@utility chip {
+  @apply inline-flex h-5 items-center gap-1 rounded-[5px] bg-surface-2 px-1.5 text-[11px] font-medium text-ink-2 [&_svg]:size-3;
 }

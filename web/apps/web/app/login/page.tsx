@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { ErrorNote, Logo } from "@/components/ui";
+import { AuthLayout } from "@/components/auth-layout";
+import { IconArrowLeft, IconMail } from "@/components/icons";
+import { ErrorNote } from "@/components/ui";
 import { api } from "@/lib/api";
 
 export default function LoginPage() {
@@ -23,56 +25,49 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 flex justify-center">
-          <Logo href="/login" />
+    <AuthLayout>
+      {state === "sent" ? (
+        <div>
+          <div className="flex size-11 items-center justify-center rounded-full bg-brand-soft text-brand [&_svg]:size-5">
+            <IconMail />
+          </div>
+          <h1 className="display mt-5 text-[28px]">Vérifie ta boîte mail</h1>
+          <p className="mt-2 text-ink-2">
+            Un lien de connexion vient de partir vers <strong className="font-medium text-ink">{email}</strong>. Il est valable 15 minutes.
+          </p>
+          <p className="mt-6 rounded-lg bg-surface-2 px-3 py-2.5 text-xs text-ink-2">
+            Pas d&apos;email configuré sur ce serveur ? Le lien est affiché dans les logs de l&apos;API.
+          </p>
+          <button className="btn-ghost mt-6 -ml-3" onClick={() => setState("idle")}>
+            <IconArrowLeft /> Utiliser une autre adresse
+          </button>
         </div>
-        <div className="card p-6">
-          {state === "sent" ? (
-            <div className="text-center">
-              <div className="text-3xl">📬</div>
-              <h1 className="mt-3 text-lg font-semibold">Vérifie ta boîte mail</h1>
-              <p className="mt-2 text-sm text-ink-2">
-                Un lien de connexion a été envoyé à <strong className="text-ink">{email}</strong>. Il est valable 15 minutes.
-              </p>
-              <p className="mt-4 text-xs text-ink-3">
-                Serveur sans email configuré ? Le lien s&apos;affiche dans les logs de l&apos;API.
-              </p>
-              <button className="btn-ghost mt-5 w-full" onClick={() => setState("idle")}>
-                Utiliser une autre adresse
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={submit} className="space-y-4">
-              <div>
-                <h1 className="text-lg font-semibold">Connexion</h1>
-                <p className="mt-1 text-sm text-ink-2">Pas de mot de passe : on t&apos;envoie un lien par email.</p>
-              </div>
-              <div>
-                <label className="label" htmlFor="email">
-                  Email
-                </label>
-                <input
-                  id="email"
-                  className="input"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  autoFocus
-                  placeholder="toi@entreprise.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              {error && <ErrorNote>{error}</ErrorNote>}
-              <button className="btn-primary w-full" disabled={state === "sending"}>
-                {state === "sending" ? "Envoi…" : "Recevoir le lien"}
-              </button>
-            </form>
-          )}
-        </div>
-      </div>
-    </main>
+      ) : (
+        <form onSubmit={submit}>
+          <h1 className="display text-[28px]">Connexion</h1>
+          <p className="mt-2 text-ink-2">Pas de mot de passe : on t&apos;envoie un lien par email.</p>
+          <div className="mt-8">
+            <label className="label" htmlFor="email">
+              Email professionnel
+            </label>
+            <input
+              id="email"
+              className="input h-10"
+              type="email"
+              autoComplete="email"
+              required
+              autoFocus
+              placeholder="toi@entreprise.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          {error && <div className="mt-3"><ErrorNote>{error}</ErrorNote></div>}
+          <button className="btn-primary mt-4 h-10 w-full" disabled={state === "sending"}>
+            {state === "sending" ? "Envoi…" : "Recevoir le lien"}
+          </button>
+        </form>
+      )}
+    </AuthLayout>
   );
 }

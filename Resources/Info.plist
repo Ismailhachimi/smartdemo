@@ -13,6 +13,13 @@
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key><string>app.smartdemo.recorder</string>
+            <key>CFBundleURLSchemes</key><array><string>smartdemo</string></array>
+        </dict>
+    </array>
     <key>NSCameraUsageDescription</key><string>SmartDemo affiche ta caméra dans la bulle et l'intègre à tes enregistrements.</string>
     <key>NSMicrophoneUsageDescription</key><string>SmartDemo enregistre ta voix pendant les démos.</string>
 </dict>

@@ -11,7 +11,7 @@ Icon?
 # Swift Package Manager / Xcode
 .build/
 .swiftpm/
-Packages/
+/Packages/
 Package.resolved
 *.xcodeproj/
 *.xcworkspace/
@@ -35,8 +35,20 @@ selftest/
 *.mobileprovision
 .env
 .env.*
+!.env.example
 
 # Editors
 .vscode/
 .idea/
 *.swp
+
+# Web (Node / Turborepo / Next.js)
+node_modules/
+.turbo/
+.next/
+dist/
+out/
+*.tsbuildinfo
+next-env.d.ts
+web/apps/api/storage/
+web/storage/

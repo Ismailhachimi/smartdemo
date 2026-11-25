@@ -332,7 +332,7 @@ final class Toast {
         panel.contentView = box
     }
 
-    func show(_ text: String) {
+    func show(_ text: String, duration: TimeInterval = 1.2) {
         label.stringValue = text
         label.sizeToFit()
         let w = label.frame.width + 36, h: CGFloat = 40
@@ -352,6 +352,6 @@ final class Toast {
             })
         }
         hideWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: work)
     }
 }

@@ -38,8 +38,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var userChoseTarget = false
     private let settings = Settings.shared
     private let director = Director.shared
+    private let cloud = CloudConfig.shared
+    private var uploadProgress: Double?
 
     // MARK: Launch
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        // smartdemo://connect?server=…&token=… (sent by the web dashboard's "Connecter l'app Mac").
+        NSAppleEventManager.shared().setEventHandler(
+            self, andSelector: #selector(handleURLEvent(_:reply:)),
+            forEventClass: AEEventClass(kInternetEventClass), andEventID: AEEventID(kAEGetURL))
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -412,8 +421,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             applyTarget(target)
             updateStatusButton()
             if let url {
-                Toast.shared.show("✅ Vidéo enregistrée dans Films/SmartDemo")
-                if settings.revealAfter { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+                cloud.lastRecording = url
+                if cloud.isConnected && cloud.autoUpload {
+                    uploadRecording(url)
+                } else {
+                    Toast.shared.show("✅ Vidéo enregistrée dans Films/SmartDemo")
+                    if settings.revealAfter { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+                }
             } else if discard {
                 Toast.shared.show("Enregistrement supprimé")
             }
@@ -449,9 +463,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             button.title = ""
         case .idle:
             preview.setStatus("", recording: false)
-            button.image = NSImage(systemSymbolName: "record.circle", accessibilityDescription: "SmartDemo")
-            button.contentTintColor = nil
-            button.title = ""
+            if let p = uploadProgress {
+                button.image = NSImage(systemSymbolName: "icloud.and.arrow.up", accessibilityDescription: "SmartDemo")
+                button.contentTintColor = .controlAccentColor
+                button.title = " \(Int(p * 100)) %"
+                button.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
+            } else {
+                button.image = NSImage(systemSymbolName: "record.circle", accessibilityDescription: "SmartDemo")
+                button.contentTintColor = nil
+                button.title = ""
+            }
         }
         button.imagePosition = .imageLeading
     }
@@ -490,6 +511,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .starting, .stopping:
             menu.addItem(header("Préparation…"))
         }
+        menu.addItem(.separator())
+        menu.addItem(shareMenu(idle: idle))
         menu.addItem(.separator())
 
         // Source
@@ -619,6 +642,124 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         quit.keyEquivalentModifierMask = [.command]
         quit.keyEquivalent = "q"
         menu.addItem(quit)
+    }
+
+    // MARK: Sharing (optional server)
+
+    private func shareMenu(idle: Bool) -> NSMenuItem {
+        let uploading = uploadProgress != nil
+        var items: [NSMenuItem] = []
+        if cloud.isConnected, let server = cloud.serverURL {
+            items.append(header("Connecté à \(server.host ?? "") (\(cloud.account ?? "?"))"))
+            items.append(ActionItem("Envoyer la dernière vidéo", enabled: idle && !uploading && cloud.lastRecording != nil) { [weak self] in
+                if let url = self?.cloud.lastRecording { self?.uploadRecording(url) }
+            })
+            items.append(ActionItem("Envoyer une vidéo…", enabled: !uploading) { [weak self] in self?.pickAndUpload() })
+            items.append(ActionItem("Envoyer automatiquement après l'enregistrement", checked: cloud.autoUpload) { [weak self] in
+                self?.cloud.autoUpload.toggle()
+            })
+            items.append(.separator())
+            items.append(ActionItem("Ouvrir le tableau de bord") { NSWorkspace.shared.open(server.appendingPathComponent("videos")) })
+            items.append(ActionItem("Changer de serveur…") { [weak self] in self?.connectDialog() })
+            items.append(ActionItem("Déconnecter") { [weak self] in
+                self?.cloud.disconnect()
+                Toast.shared.show("Serveur déconnecté")
+            })
+        } else {
+            items.append(header("Les vidéos restent sur ce Mac"))
+            items.append(ActionItem("Connecter un serveur…") { [weak self] in self?.connectDialog() })
+        }
+        let title = uploading ? "Partage — envoi \(Int((uploadProgress ?? 0) * 100)) %" : "Partage"
+        return submenu(title, items)
+    }
+
+    @objc private func handleURLEvent(_ event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) {
+        guard let raw = event.paramDescriptor(forKeyword: keyDirectObject)?.stringValue,
+              let comps = URLComponents(string: raw), comps.host == "connect" else { return }
+        let q = Dictionary(uniqueKeysWithValues: (comps.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+        guard let server = q["server"].flatMap(CloudConfig.normalize), let token = q["token"], !token.isEmpty else {
+            Toast.shared.show("Lien de connexion invalide", duration: 2.5)
+            return
+        }
+        connect(server: server, token: token)
+    }
+
+    private func connect(server: URL, token: String) {
+        Task { @MainActor in
+            do {
+                let email = try await CloudClient.shared.verify(server: server, token: token)
+                cloud.serverURL = server
+                cloud.token = token
+                cloud.account = email
+                Toast.shared.show("✅ Connecté à \(server.host ?? "") — \(email)", duration: 2.5)
+            } catch {
+                alert("Connexion impossible", error.localizedDescription)
+            }
+        }
+    }
+
+    private func connectDialog() {
+        NSApp.activate(ignoringOtherApps: true)
+        let a = NSAlert()
+        a.messageText = "Connecter un serveur SmartDemo"
+        a.informativeText = "Dans le tableau de bord du serveur, va dans Réglages → « Connecter l'app Mac ». Le bouton remplit tout seul ; sinon colle l'adresse et le token ici."
+        let server = NSTextField(string: cloud.serverURL?.absoluteString ?? "")
+        server.placeholderString = "https://smartdemo.exemple.com"
+        let token = NSSecureTextField(string: "")
+        token.placeholderString = "Token (sd_…)"
+        let stack = NSStackView(views: [server, token])
+        stack.orientation = .vertical
+        stack.spacing = 8
+        stack.frame = NSRect(x: 0, y: 0, width: 340, height: 56)
+        server.frame.size.width = 340
+        token.frame.size.width = 340
+        a.accessoryView = stack
+        a.addButton(withTitle: "Connecter")
+        a.addButton(withTitle: "Annuler")
+        a.window.initialFirstResponder = server
+        guard a.runModal() == .alertFirstButtonReturn else { return }
+        guard let url = CloudConfig.normalize(server.stringValue) else {
+            alert("Adresse invalide", "Exemple : https://smartdemo.exemple.com")
+            return
+        }
+        let tok = token.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !tok.isEmpty else { return alert("Token manquant", "Crée un token dans Réglages sur le serveur.") }
+        connect(server: url, token: tok)
+    }
+
+    private func pickAndUpload() {
+        NSApp.activate(ignoringOtherApps: true)
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.mpeg4Movie, .quickTimeMovie]
+        panel.directoryURL = FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask)[0].appendingPathComponent("SmartDemo")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        uploadRecording(url)
+    }
+
+    private func uploadRecording(_ url: URL) {
+        guard uploadProgress == nil else { return }
+        uploadProgress = 0
+        updateStatusButton()
+        Toast.shared.show("☁️ Envoi de la vidéo…")
+        Task { @MainActor in
+            do {
+                let result = try await CloudClient.shared.upload(url) { p in
+                    DispatchQueue.main.async { [weak self] in
+                        self?.uploadProgress = p
+                        self?.updateStatusButton()
+                    }
+                }
+                uploadProgress = nil
+                updateStatusButton()
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(result.shareURL, forType: .string)
+                Toast.shared.show("🔗 Lien copié — colle-le où tu veux", duration: 3)
+            } catch {
+                uploadProgress = nil
+                updateStatusButton()
+                alert("Envoi impossible", error.localizedDescription + "\n\nLa vidéo est toujours sur ton Mac.")
+            }
+        }
     }
 
     private func alert(_ title: String, _ text: String) {

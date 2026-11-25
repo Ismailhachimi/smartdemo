@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+/* Design tokens. Dark mode follows the OS. */
+@theme {
+  --color-bg: #f6f6f9;
+  --color-surface: #ffffff;
+  --color-surface-2: #f1f1f5;
+  --color-border: #e4e4ea;
+  --color-ink: #1b1d29;
+  --color-ink-2: #565a6e;
+  --color-ink-3: #8a8ea0;
+  --color-brand: #4f46e5;
+  --color-brand-2: #4338ca;
+  --color-brand-soft: #eef0ff;
+  --color-good: #15803d;
+  --color-danger: #c62828;
+  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Helvetica, Arial, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #0e0f14;
+    --color-surface: #171821;
+    --color-surface-2: #1f2130;
+    --color-border: #2a2c3b;
+    --color-ink: #ecedf3;
+    --color-ink-2: #a9adc0;
+    --color-ink-3: #767b90;
+    --color-brand: #7c74ff;
+    --color-brand-2: #948dff;
+    --color-brand-soft: #23244a;
+    --color-good: #4ade80;
+    --color-danger: #f87171;
+  }
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+@utility card {
+  @apply rounded-2xl border border-border bg-surface;
+}
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn bg-brand text-white hover:bg-brand-2;
+}
+@utility btn-ghost {
+  @apply btn border border-border bg-surface text-ink hover:bg-surface-2;
+}
+@utility btn-danger {
+  @apply btn border border-border bg-surface text-danger hover:bg-surface-2;
+}
+@utility input {
+  @apply w-full rounded-xl border border-border bg-surface px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-ink-3 focus:border-brand focus:ring-2 focus:ring-brand/20;
+}
+@utility label {
+  @apply mb-1.5 block text-xs font-medium text-ink-2;
+}

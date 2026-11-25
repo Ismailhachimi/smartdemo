@@ -1,0 +1,21 @@
+# Development database only. Run the apps with `pnpm dev`.
+#
+#   docker compose -f docker-compose.dev.yml up -d
+
+name: smartdemo-dev
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: smartdemo
+      POSTGRES_PASSWORD: smartdemo
+      POSTGRES_DB: smartdemo
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+
+volumes:
+  pgdata-dev:

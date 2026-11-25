@@ -121,6 +121,7 @@ Microphone ───────┘          ▲                                
 | [`Overlays.swift`](Sources/SmartDemo/Overlays.swift) | On-screen bubble, zone picker, countdown, toasts. None of them are recorded. |
 | [`Panels.swift`](Sources/SmartDemo/Panels.swift) | Zoom viewfinder, live preview window, shortcut guide. |
 | [`Hotkeys.swift`](Sources/SmartDemo/Hotkeys.swift) | Global shortcuts (Carbon), resolved against the current keyboard layout. |
+| [`Cloud.swift`](Sources/SmartDemo/Cloud.swift) | Optional server connection: token in the Keychain, upload with progress, share link. |
 | [`main.swift`](Sources/SmartDemo/main.swift) | Menu-bar app, menu, recording lifecycle. |
 
 ### Self-test
@@ -133,10 +134,22 @@ build/SmartDemo.app/Contents/MacOS/SmartDemo --selftest selftest
 
 CI runs this on every push.
 
+## Share links and analytics (optional server)
+
+Recordings stay on your Mac. If you want share links, SmartDemo can upload a recording to
+**your own server** in one click and copy the link: one link per prospect, with an optional
+password, expiry and download permission, email alerts when someone opens it, and viewer
+analytics (who opened, how much they watched, where they dropped off).
+
+The server lives in [`web/`](web/): NestJS + Next.js + PostgreSQL, shipped as a
+`docker compose` stack that runs on any VPS. Videos are stored on a local volume, any
+S3-compatible bucket, or Azure Blob Storage. See [web/README.md](web/README.md).
+
+In the app: **Partage → Connecter un serveur…**, then **Partage → Envoyer la dernière vidéo**.
+
 ## Roadmap
 
 - English localization
-- Optional upload with share links, access control and viewer analytics (self-hostable)
 - Scriptable recordings for personalized demos at scale
 
 ## Contributing

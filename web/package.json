@@ -1,0 +1,20 @@
+{
+  "name": "smartdemo-web",
+  "private": true,
+  "packageManager": "pnpm@11.6.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "typecheck": "turbo run typecheck",
+    "db:generate": "pnpm --filter @smartdemo/db generate",
+    "db:migrate": "pnpm --filter @smartdemo/db migrate",
+    "email:preview": "pnpm --filter @smartdemo/emails preview"
+  },
+  "devDependencies": {
+    "turbo": "2.11.13",
+    "typescript": "6.0.3"
+  }
+}

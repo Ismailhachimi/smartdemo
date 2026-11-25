@@ -7,35 +7,46 @@ import { formatDuration } from "@/lib/format";
 
 // ---- Brand ---------------------------------------------------------------------------------
 
-/** The app icon, redrawn: violet tile, amber viewfinder corners, red record dot. */
+/**
+ * The mark: two opposite viewfinder corners framing a record dot, on a violet tile.
+ * Same drawing as app/icon.svg (favicon) and public/icon.png (emails).
+ */
 export function LogoMark({ size = 28 }: { size?: number }) {
   const id = useId();
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" className="shrink-0">
       <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#4636ee" />
-          <stop offset="1" stopColor="#8e3fd6" />
+        <linearGradient id={`${id}g`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#6a4dff" />
+          <stop offset="1" stopColor="#3b1fd6" />
+        </linearGradient>
+        <linearGradient id={`${id}s`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#fff" stopOpacity="0.22" />
+          <stop offset="0.55" stopColor="#fff" stopOpacity="0" />
         </linearGradient>
       </defs>
-      <rect width="32" height="32" rx="8" fill={`url(#${id})`} />
+      <rect width="32" height="32" rx="9" fill={`url(#${id}g)`} />
+      <rect x="0.5" y="0.5" width="31" height="31" rx="8.5" fill={`url(#${id}s)`} stroke="#fff" strokeOpacity="0.14" />
       <path
-        d="M8.5 12.5V9.5a1 1 0 0 1 1-1h3M19.5 8.5h3a1 1 0 0 1 1 1v3M23.5 19.5v3a1 1 0 0 1-1 1h-3M12.5 23.5h-3a1 1 0 0 1-1-1v-3"
-        stroke="#f4b83a"
-        strokeWidth="2"
+        d="M8.5 14.5V11a2.5 2.5 0 0 1 2.5-2.5h3.5M23.5 17.5V21a2.5 2.5 0 0 1-2.5 2.5h-3.5"
+        stroke="#fff"
+        strokeWidth="2.8"
         strokeLinecap="round"
         fill="none"
       />
-      <circle cx="16" cy="16" r="3.6" fill="#ff4d58" />
+      <circle cx="16" cy="16" r="3.3" fill="#ff4d58" />
     </svg>
   );
 }
 
-export function Logo({ href = "/activity" }: { href?: string }) {
+/** Mark + lowercase wordmark. */
+export function Logo({ href = "/activity", size = 26 }: { href?: string; size?: number }) {
   return (
-    <Link href={href} className="flex items-center gap-2.5 rounded-md">
-      <LogoMark />
-      <span className="display text-[17px]">SmartDemo</span>
+    <Link href={href} className="flex items-center gap-2 rounded-md" aria-label="SmartDemo">
+      <LogoMark size={size} />
+      <span className="font-display text-[19px] leading-none font-bold tracking-[-0.045em]" aria-hidden="true">
+        smartdemo
+      </span>
     </Link>
   );
 }
@@ -51,6 +62,27 @@ export function Viewfinder({ inset = 8, size = 14, className = "" }: { inset?: n
       <span className={`${corner} bottom-0 left-0 rounded-bl-[3px] border-b-2 border-l-2`} style={s} />
       <span className={`${corner} right-0 bottom-0 rounded-br-[3px] border-r-2 border-b-2`} style={s} />
     </span>
+  );
+}
+
+/**
+ * Page backdrop: a dot grid and a violet glow at the top that fade out before the content
+ * gets dense. Needs a `relative isolate` parent.
+ */
+export function Backdrop({ className = "h-[520px]" }: { className?: string }) {
+  return (
+    <div aria-hidden="true" className={`pointer-events-none absolute inset-x-0 top-0 -z-10 overflow-hidden ${className}`}>
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: "radial-gradient(var(--color-grid) 1px, transparent 1.2px)",
+          backgroundSize: "22px 22px",
+          maskImage: "radial-gradient(ellipse 75% 70% at 50% 0%, #000 25%, transparent 80%)",
+        }}
+      />
+      <div className="absolute -top-56 left-1/2 h-[440px] w-[min(1000px,140%)] -translate-x-1/2 rounded-full bg-brand opacity-[0.12] blur-[110px] dark:opacity-[0.16]" />
+      <div className="absolute -top-40 left-[62%] h-[260px] w-[420px] -translate-x-1/2 rounded-full bg-rec opacity-[0.05] blur-[100px] dark:opacity-[0.08]" />
+    </div>
   );
 }
 

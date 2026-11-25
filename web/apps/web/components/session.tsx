@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { IconActivity, IconFilm, IconLaptop, IconLogout, IconSettings } from "@/components/icons";
-import { Avatar, Logo, Menu, MenuItem, Spinner } from "@/components/ui";
+import { Avatar, Backdrop, Logo, Menu, MenuItem, Spinner } from "@/components/ui";
 import { api, ApiError, type ApiToken, type User } from "@/lib/api";
 import { timeAgo } from "@/lib/format";
 
@@ -67,7 +67,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <SessionContext.Provider value={{ user, setUser, tokens, reloadTokens }}>
       <div className="lg:grid lg:min-h-dvh lg:grid-cols-[248px_1fr]">
         {/* Sidebar (desktop) */}
-        <aside className="sticky top-0 hidden h-dvh flex-col border-r border-border px-3 py-5 lg:flex">
+        <aside className="sticky top-0 z-10 hidden h-dvh flex-col border-r border-border bg-sidebar px-3 py-5 lg:flex">
           <div className="px-2.5">
             <Logo />
           </div>
@@ -103,7 +103,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </aside>
 
         {/* Top bar (mobile, tablet) */}
-        <header className="sticky top-0 z-20 border-b border-border bg-bg/90 backdrop-blur-md lg:hidden">
+        <header className="sticky top-0 z-20 border-b border-border bg-bg/80 backdrop-blur-xl lg:hidden">
           <div className="flex h-14 items-center gap-3 px-4">
             <Logo />
             <div className="ml-auto">
@@ -138,7 +138,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           </nav>
         </header>
 
-        <main className="mx-auto w-full max-w-[1160px] px-4 py-8 sm:px-6 lg:px-10 lg:py-10">{children}</main>
+        <div className="relative isolate min-w-0">
+          <Backdrop />
+          <main className="mx-auto w-full max-w-[1160px] px-4 py-8 sm:px-6 lg:px-10 lg:py-10">{children}</main>
+        </div>
       </div>
     </SessionContext.Provider>
   );

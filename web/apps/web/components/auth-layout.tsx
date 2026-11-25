@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { LiveDot, Logo, Viewfinder } from "@/components/ui";
+import { Backdrop, LiveDot, Logo, Viewfinder } from "@/components/ui";
 
 /** Sign-in screens: a dark "monitor" on the left (desktop), the form on the right. */
 export function AuthLayout({ children }: { children: ReactNode }) {
@@ -13,7 +13,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           className="absolute inset-0 opacity-70"
           style={{
             background:
-              "radial-gradient(60% 50% at 30% 35%, rgb(91 63 240 / 0.35), transparent 70%), radial-gradient(40% 40% at 75% 75%, rgb(229 52 63 / 0.18), transparent 70%)",
+              "radial-gradient(60% 50% at 30% 30%, rgb(91 62 241 / 0.42), transparent 70%), radial-gradient(40% 40% at 78% 78%, rgb(255 77 88 / 0.16), transparent 70%)",
           }}
         />
         <div className="relative flex h-full flex-col p-10">
@@ -34,7 +34,8 @@ export function AuthLayout({ children }: { children: ReactNode }) {
         </div>
       </div>
 
-      <div className="flex flex-col px-6 py-8 sm:px-10">
+      <div className="relative isolate flex flex-col px-6 py-8 sm:px-10">
+        <Backdrop className="h-[70%]" />
         <div className="lg:hidden">
           <Logo href="/login" />
         </div>

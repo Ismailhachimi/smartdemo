@@ -2,28 +2,30 @@
 
 /*
  * SmartDemo design tokens.
- * Warm neutrals, ink-black actions, the icon's violet for data and focus, its amber for the
- * viewfinder motif and its red for anything live. The app follows the OS theme; the public
+ * Cool neutrals, ink-black actions, the logo's violet for data and focus, amber for the
+ * viewfinder motif and record red for anything live. The app follows the OS theme; the public
  * share page is always dark (`.stage`).
  */
 @theme {
-  --color-bg: #f6f5f1;
+  --color-bg: #fcfcfd;
+  --color-sidebar: #f6f6f8;
+  --color-grid: #dcdce4;
   --color-surface: #ffffff;
-  --color-surface-2: #efede8;
-  --color-surface-3: #e6e3dc;
-  --color-border: #e2dfd7;
-  --color-border-strong: #cfcbc1;
-  --color-ink: #17161b;
-  --color-ink-2: #5e5b64;
-  --color-ink-3: #8e8a93;
+  --color-surface-2: #f4f4f6;
+  --color-surface-3: #eaeaef;
+  --color-border: #e8e8ed;
+  --color-border-strong: #d4d4dc;
+  --color-ink: #0c0c10;
+  --color-ink-2: #5b5b68;
+  --color-ink-3: #8c8c98;
   --color-on-ink: #ffffff;
-  --color-brand: #5b3ff0;
-  --color-brand-2: #4a2fdc;
-  --color-brand-soft: #ece8fe;
+  --color-brand: #5b3ef1;
+  --color-brand-2: #4a2ddf;
+  --color-brand-soft: #efecff;
   --color-amber: #e9a514;
   --color-rec: #e5343f;
-  --color-good: #1d8049;
-  --color-danger: #c42e36;
+  --color-good: #17834a;
+  --color-danger: #d02f39;
 
   --font-sans: var(--font-ui), ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-display: var(--font-title), var(--font-ui), ui-sans-serif, sans-serif;
@@ -39,19 +41,21 @@
 @layer base {
   @media (prefers-color-scheme: dark) {
     :root {
-      --color-bg: #0e0d11;
-      --color-surface: #16151a;
-      --color-surface-2: #1d1c22;
-      --color-surface-3: #26242c;
-      --color-border: #29272f;
-      --color-border-strong: #3a3741;
-      --color-ink: #f2f0f5;
-      --color-ink-2: #a8a4b0;
-      --color-ink-3: #75717e;
-      --color-on-ink: #0e0d11;
-      --color-brand: #8f7dff;
-      --color-brand-2: #a597ff;
-      --color-brand-soft: #221c43;
+      --color-bg: #09090b;
+      --color-sidebar: #0c0c0f;
+      --color-grid: #1d1d24;
+      --color-surface: #111114;
+      --color-surface-2: #18181c;
+      --color-surface-3: #222228;
+      --color-border: #222229;
+      --color-border-strong: #31313a;
+      --color-ink: #f4f4f6;
+      --color-ink-2: #a1a1ad;
+      --color-ink-3: #6f6f7b;
+      --color-on-ink: #09090b;
+      --color-brand: #8c7bff;
+      --color-brand-2: #a193ff;
+      --color-brand-soft: #1f1a45;
       --color-amber: #f4b83a;
       --color-rec: #ff4d58;
       --color-good: #4cc47e;

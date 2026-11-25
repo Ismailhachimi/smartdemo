@@ -44,8 +44,10 @@ export default function LoginPage() {
         </div>
       ) : (
         <form onSubmit={submit}>
-          <h1 className="display text-[28px]">Connexion</h1>
-          <p className="mt-2 text-ink-2">Pas de mot de passe : on t&apos;envoie un lien par email.</p>
+          <h1 className="display text-[28px]">Connexion ou inscription</h1>
+          <p className="mt-2 text-ink-2">
+            Pas de mot de passe : on t&apos;envoie un lien par email. Première fois ? Ton compte est créé quand tu cliques sur le lien.
+          </p>
           <div className="mt-8">
             <label className="label" htmlFor="email">
               Email professionnel

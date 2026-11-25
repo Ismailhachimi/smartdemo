@@ -1,0 +1,42 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+
+# Swift Package Manager / Xcode
+.build/
+.swiftpm/
+Packages/
+Package.resolved
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+
+# Build output
+build/
+selftest/
+*.iconset/
+
+# Recordings and local media
+*.mp4
+*.mov
+
+# Secrets and signing material — never commit these
+*.p12
+*.pem
+*.key
+*.cer
+*.mobileprovision
+.env
+.env.*
+
+# Editors
+.vscode/
+.idea/
+*.swp

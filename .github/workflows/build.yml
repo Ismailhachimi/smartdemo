@@ -1,0 +1,23 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build app bundle (ad-hoc signed)
+        run: ./build.sh
+
+      - name: Render self-test frames
+        run: build/SmartDemo.app/Contents/MacOS/SmartDemo --selftest selftest
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: selftest-frames
+          path: selftest/*.jpg

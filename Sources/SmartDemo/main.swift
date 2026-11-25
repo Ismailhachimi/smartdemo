@@ -676,55 +676,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func handleURLEvent(_ event: NSAppleEventDescriptor, reply: NSAppleEventDescriptor) {
         guard let raw = event.paramDescriptor(forKeyword: keyDirectObject)?.stringValue,
               let comps = URLComponents(string: raw), comps.host == "connect" else { return }
-        let q = Dictionary(uniqueKeysWithValues: (comps.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+        let q = Dictionary((comps.queryItems ?? []).map { ($0.name, $0.value ?? "") }, uniquingKeysWith: { a, _ in a })
         guard let server = q["server"].flatMap(CloudConfig.normalize), let token = q["token"], !token.isEmpty else {
             Toast.shared.show("Lien de connexion invalide", duration: 2.5)
             return
         }
-        connect(server: server, token: token)
-    }
-
-    private func connect(server: URL, token: String) {
         Task { @MainActor in
             do {
-                let email = try await CloudClient.shared.verify(server: server, token: token)
-                cloud.serverURL = server
-                cloud.token = token
-                cloud.account = email
-                Toast.shared.show("✅ Connecté à \(server.host ?? "") — \(email)", duration: 2.5)
+                let email = try await connect(server: server, token: token)
+                if ConnectWindow.shared.isOpen {
+                    ConnectWindow.shared.didConnect(email: email)
+                } else {
+                    Toast.shared.show("✅ Connecté à \(server.host ?? "") — \(email)", duration: 2.5)
+                }
             } catch {
-                alert("Connexion impossible", error.localizedDescription)
+                if !ConnectWindow.shared.didFail(error.localizedDescription) {
+                    alert("Connexion impossible", error.localizedDescription)
+                }
             }
         }
     }
 
+    /// Checks the token against the server, then saves the connection. Returns the account email.
+    @MainActor
+    private func connect(server: URL, token: String) async throws -> String {
+        let email = try await CloudClient.shared.verify(server: server, token: token)
+        cloud.serverURL = server
+        cloud.token = token
+        cloud.account = email
+        return email
+    }
+
+    /// Menu actions run on the main thread.
     private func connectDialog() {
-        NSApp.activate(ignoringOtherApps: true)
-        let a = NSAlert()
-        a.messageText = "Connecter un serveur SmartDemo"
-        a.informativeText = "Dans le tableau de bord du serveur, va dans Réglages → « Connecter l'app Mac ». Le bouton remplit tout seul ; sinon colle l'adresse et le token ici."
-        let server = NSTextField(string: cloud.serverURL?.absoluteString ?? "")
-        server.placeholderString = "https://smartdemo.exemple.com"
-        let token = NSSecureTextField(string: "")
-        token.placeholderString = "Token (sd_…)"
-        let stack = NSStackView(views: [server, token])
-        stack.orientation = .vertical
-        stack.spacing = 8
-        stack.frame = NSRect(x: 0, y: 0, width: 340, height: 56)
-        server.frame.size.width = 340
-        token.frame.size.width = 340
-        a.accessoryView = stack
-        a.addButton(withTitle: "Connecter")
-        a.addButton(withTitle: "Annuler")
-        a.window.initialFirstResponder = server
-        guard a.runModal() == .alertFirstButtonReturn else { return }
-        guard let url = CloudConfig.normalize(server.stringValue) else {
-            alert("Adresse invalide", "Exemple : https://smartdemo.exemple.com")
-            return
+        MainActor.assumeIsolated {
+            ConnectWindow.shared.connect = { [weak self] server, token in
+                guard let self else { throw CancellationError() }
+                return try await self.connect(server: server, token: token)
+            }
+            ConnectWindow.shared.show(server: cloud.serverURL)
         }
-        let tok = token.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !tok.isEmpty else { return alert("Token manquant", "Crée un token dans Réglages sur le serveur.") }
-        connect(server: url, token: tok)
     }
 
     private func pickAndUpload() {

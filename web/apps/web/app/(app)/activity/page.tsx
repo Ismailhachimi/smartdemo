@@ -32,7 +32,7 @@ export default function ActivityPage() {
   if (!activity || !videos || !tokens) return <Spinner />;
 
   const steps = [
-    { done: tokens.length > 0, title: "Connecter l'app Mac", text: "Un clic depuis les réglages.", href: "/settings#mac", cta: "Connecter" },
+    { done: tokens.length > 0, title: "Connecter l'app Mac", text: "Un clic depuis les réglages.", href: "/connect", cta: "Connecter" },
     {
       done: videos.length > 0,
       title: "Envoyer un enregistrement",

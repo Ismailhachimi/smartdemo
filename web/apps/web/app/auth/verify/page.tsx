@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { AuthLayout } from "@/components/auth-layout";
 import { Spinner } from "@/components/ui";
-import { api } from "@/lib/api";
+import { api, safeNext } from "@/lib/api";
 
 function Verify() {
   const params = useSearchParams();
@@ -22,7 +22,7 @@ function Verify() {
       return;
     }
     api("/auth/verify", { method: "POST", json: { token } })
-      .then(() => router.replace("/activity"))
+      .then(() => router.replace(safeNext(params.get("next")) ?? "/activity"))
       .catch((err: Error) => setError(err.message));
   }, [params, router]);
 

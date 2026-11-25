@@ -27,7 +27,7 @@ export class AuthService {
     return rules.some((r) => (r.startsWith("@") ? email.endsWith(r) : email === r));
   }
 
-  async requestMagicLink(rawEmail: string): Promise<void> {
+  async requestMagicLink(rawEmail: string, next?: string): Promise<void> {
     const email = rawEmail.trim().toLowerCase();
     if (!this.isAllowed(email)) throw new ForbiddenException("Cette adresse n'est pas autorisée sur ce serveur.");
     const token = randomToken();
@@ -36,7 +36,7 @@ export class AuthService {
       tokenHash: sha256(token),
       expiresAt: new Date(Date.now() + LINK_MINUTES * 60_000),
     });
-    const url = `${env.APP_URL}/auth/verify?token=${encodeURIComponent(token)}`;
+    const url = `${env.APP_URL}/auth/verify?token=${encodeURIComponent(token)}${next ? `&next=${encodeURIComponent(next)}` : ""}`;
     await this.mail.send(email, await magicLinkEmail({ url, appUrl: env.APP_URL, minutes: LINK_MINUTES }));
   }
 

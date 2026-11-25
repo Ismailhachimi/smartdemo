@@ -41,7 +41,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     api<{ user: User }>("/auth/me")
       .then((r) => setUser(r.user))
       .catch((err) => {
-        if (err instanceof ApiError && err.status === 401) router.replace("/login");
+        if (err instanceof ApiError && err.status === 401) {
+          const here = window.location.pathname + window.location.search;
+          router.replace(here.startsWith("/activity") ? "/login" : `/login?next=${encodeURIComponent(here)}`);
+        }
       });
   }, [router]);
 

@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { AuthLayout } from "@/components/auth-layout";
 import { IconArrowLeft, IconMail } from "@/components/icons";
 import { ErrorNote } from "@/components/ui";
-import { api } from "@/lib/api";
+import { api, safeNext } from "@/lib/api";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -16,7 +16,8 @@ export default function LoginPage() {
     setError(null);
     setState("sending");
     try {
-      await api("/auth/magic-link", { method: "POST", json: { email } });
+      const next = safeNext(new URLSearchParams(window.location.search).get("next")) ?? undefined;
+      await api("/auth/magic-link", { method: "POST", json: { email, next } });
       setState("sent");
     } catch (err) {
       setError((err as Error).message);

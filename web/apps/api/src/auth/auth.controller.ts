@@ -7,7 +7,15 @@ import { cookieSecure } from "../env.js";
 import { AuthGuard, CurrentUser } from "./auth.guard.js";
 import { AuthService, SESSION_COOKIE, SESSION_DAYS, type AuthUser } from "./auth.service.js";
 
-const MagicLinkBody = z.object({ email: z.email().max(320) });
+const MagicLinkBody = z.object({
+  email: z.email().max(320),
+  /** Where to land after signing in: an app path such as "/connect". */
+  next: z
+    .string()
+    .max(200)
+    .regex(/^\/(?![/\\])[\w\-./?=&%#]*$/)
+    .optional(),
+});
 const VerifyBody = z.object({ token: z.string().min(10).max(200) });
 const ProfileBody = z.object({ name: z.string().trim().max(120).nullable() });
 
@@ -20,7 +28,7 @@ export class AuthController {
   @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async magicLink(@Body(new ZodPipe(MagicLinkBody)) body: z.infer<typeof MagicLinkBody>) {
-    await this.auth.requestMagicLink(body.email);
+    await this.auth.requestMagicLink(body.email, body.next);
   }
 
   @Post("verify")

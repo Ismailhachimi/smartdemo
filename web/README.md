@@ -95,9 +95,14 @@ migration in `packages/db/drizzle/`. It is applied the next time the API starts.
 
 ## Connecting the Mac app
 
-In the web app, open **Réglages → Connecter l'app Mac**. That creates a token and opens
-SmartDemo through its `smartdemo://` link. To set it up by hand, choose **Partage → Connecter un serveur…** in
-the SmartDemo menu and paste the server address and a token.
+In SmartDemo, choose **Partage → Connecter un serveur…**, enter the server address and click
+**Continuer dans le navigateur**. The browser opens `/connect` (sign in if needed), you click
+**Autoriser**, and the page hands a token to the app through its `smartdemo://` link. The page
+confirms as soon as the app has used it. From the web app, **Réglages → Connecter un Mac** starts
+the same flow.
+
+Without a browser handoff, create a token in **Réglages → Créer un token** and paste it in the
+app's **Avec un token** tab.
 
 Then **Partage → Envoyer la dernière vidéo** uploads the last recording and copies the share
 link. You can also turn on automatic upload after each recording.

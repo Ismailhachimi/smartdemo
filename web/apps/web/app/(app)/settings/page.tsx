@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { IconLaptop } from "@/components/icons";
 import { useSession } from "@/components/session";
@@ -13,15 +14,12 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const server = typeof window === "undefined" ? "" : window.location.origin;
 
-  async function connectMac(open: boolean) {
+  async function createToken() {
     setError(null);
     try {
-      const r = await api<{ token: string }>("/tokens", { method: "POST", json: { name: "SmartDemo pour Mac" } });
+      const r = await api<{ token: string }>("/tokens", { method: "POST", json: { name: "Token manuel" } });
       setFresh(r.token);
       reloadTokens();
-      if (open) {
-        window.location.href = `smartdemo://connect?server=${encodeURIComponent(server)}&token=${encodeURIComponent(r.token)}`;
-      }
     } catch (err) {
       setError((err as Error).message);
     }
@@ -38,18 +36,18 @@ export default function SettingsPage() {
           description="SmartDemo envoie ici les enregistrements que tu choisis de partager. Rien ne part sans ton action."
         >
           <div className="flex flex-wrap gap-2">
-            <button className="btn-primary" onClick={() => connectMac(true)}>
-              <IconLaptop /> Connecter ce Mac
-            </button>
-            <button className="btn-secondary" onClick={() => connectMac(false)}>
-              Configurer à la main
+            <Link href="/connect" className="btn-primary">
+              <IconLaptop /> Connecter un Mac
+            </Link>
+            <button className="btn-secondary" onClick={createToken}>
+              Créer un token
             </button>
           </div>
           {error && <div className="mt-3"><ErrorNote>{error}</ErrorNote></div>}
           {fresh && (
             <div className="mt-4 space-y-3 rounded-lg bg-surface-2 p-4">
               <p className="text-[13px] text-ink-2">
-                Si SmartDemo ne s&apos;est pas ouverte, choisis <strong className="font-medium text-ink">Partage → Connecter un serveur…</strong> dans son menu et colle ces deux valeurs. Le token ne sera plus affiché.
+                Dans SmartDemo, choisis <strong className="font-medium text-ink">Partage → Connecter un serveur…</strong>, puis <strong className="font-medium text-ink">Avec un token</strong>, et colle ces deux valeurs. Le token ne sera plus affiché.
               </p>
               <Field label="Adresse du serveur" value={server} />
               <Field label="Token" value={fresh} />

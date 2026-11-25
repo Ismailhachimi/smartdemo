@@ -128,3 +128,8 @@ export interface Activity {
 
 /** What a share link is called in the UI when it has no label. */
 export const linkName = (label: string | null | undefined) => label || "Lien principal";
+
+/** A same-site path to return to after signing in, or null if `raw` is anything else. */
+export function safeNext(raw: string | null | undefined): string | null {
+  return raw && /^\/(?![/\\])[\w\-./?=&%#]*$/.test(raw) && raw.length <= 200 ? raw : null;
+}

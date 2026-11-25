@@ -88,7 +88,7 @@ pnpm dev                      # API on :4000, web on :3000 (ports: API_PORT / WE
 ```
 
 Sign-in links appear in the `pnpm dev` output. In development the web app proxies `/api` to
-the API. Point the Mac app at the API port (`http://localhost:4000`) to upload large files.
+the API, uploads included (up to `MAX_UPLOAD_MB`), so the Mac app can use the web address.
 
 Schema changes: edit `packages/db/src/schema.ts`, then `pnpm db:generate` and commit the new
 migration in `packages/db/drizzle/`. It is applied the next time the API starts.

@@ -18,6 +18,7 @@ import {
   IconX,
 } from "@/components/icons";
 import { RetentionChart } from "@/components/retention-chart";
+import { VideoPlayer } from "@/components/video-player";
 import { CopyButton, Empty, ErrorNote, KpiRow, Menu, MenuItem, Meter, Section, Spinner, Switch, useCopy } from "@/components/ui";
 import { api, linkName, type ShareLink, type VideoDetail } from "@/lib/api";
 import { formatBytes, formatDate, formatDuration, formatPercent, formatTime, formatWatchTime, plural, timeAgo } from "@/lib/format";
@@ -104,17 +105,12 @@ export default function VideoPage() {
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 lg:col-start-1 lg:row-start-1">
           <div className="panel overflow-hidden">
-            <video
-              ref={videoRef}
-              className="aspect-video w-full bg-black"
+            <VideoPlayer
+              videoRef={videoRef}
               src={`/api/videos/${video.id}/stream`}
               poster={video.hasThumbnail ? `/api/videos/${video.id}/thumbnail?v=${encodeURIComponent(video.updatedAt)}` : undefined}
-              controls
-              preload="metadata"
-              onTimeUpdate={(e) => {
-                const el = e.currentTarget;
-                setPosition(el.duration ? el.currentTime / el.duration : null);
-              }}
+              aspect={video.width && video.height ? `${video.width} / ${video.height}` : "16 / 9"}
+              onTimeUpdate={(el) => setPosition(el.duration ? el.currentTime / el.duration : null)}
             />
             <div className="border-t border-border px-4 pt-3.5 pb-3">
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">

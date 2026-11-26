@@ -114,3 +114,30 @@ export const IconCalendar = make(
   </>,
   "IconCalendar",
 );
+
+// ---- Player (filled glyphs read better over video) ----------------------------------------
+export const IconPlay = make(<path d="M7 4.8v14.4a1 1 0 0 0 1.53.85l11.5-7.2a1 1 0 0 0 0-1.7L8.53 3.95A1 1 0 0 0 7 4.8Z" fill="currentColor" stroke="none" />, "IconPlay");
+export const IconPause = make(
+  <>
+    <rect x="6" y="4.5" width="4.2" height="15" rx="1.2" fill="currentColor" stroke="none" />
+    <rect x="13.8" y="4.5" width="4.2" height="15" rx="1.2" fill="currentColor" stroke="none" />
+  </>,
+  "IconPause",
+);
+export const IconVolume = make(
+  <>
+    <path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z" fill="currentColor" />
+    <path d="M15.5 9a4.2 4.2 0 0 1 0 6M18.3 6.5a8 8 0 0 1 0 11" />
+  </>,
+  "IconVolume",
+);
+export const IconVolumeX = make(
+  <>
+    <path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z" fill="currentColor" />
+    <path d="m16 9.5 5 5M21 9.5l-5 5" />
+  </>,
+  "IconVolumeX",
+);
+export const IconMaximize = make(<path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15" />, "IconMaximize");
+export const IconMinimize = make(<path d="M9 4v3.5A1.5 1.5 0 0 1 7.5 9H4M20 9h-3.5A1.5 1.5 0 0 1 15 7.5V4M15 20v-3.5a1.5 1.5 0 0 1 1.5-1.5H20M4 15h3.5A1.5 1.5 0 0 1 9 16.5V20" />, "IconMinimize");
+export const IconReplay = make(<path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4.5h4.5" />, "IconReplay");

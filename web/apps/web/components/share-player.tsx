@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { IconDownload, IconLock } from "@/components/icons";
 import { Avatar, ErrorNote } from "@/components/ui";
+import { VideoPlayer } from "@/components/video-player";
 import { api } from "@/lib/api";
 import { formatDate, formatDuration } from "@/lib/format";
 
@@ -204,19 +205,16 @@ function Player({ meta, token }: { meta: ShareMeta; token: string }) {
 
   return (
     <div>
-      <video
-        ref={videoRef}
-        className="w-full rounded-xl bg-black shadow-[0_30px_80px_-20px_rgb(0_0_0/0.8)] ring-1 ring-white/10"
-        style={{ aspectRatio: aspect }}
+      {/* Without download permission there is no download control and no "Save video as".
+          A deterrent, not protection: whoever can watch the stream can record it. */}
+      <VideoPlayer
+        videoRef={videoRef}
         src={`${base}/stream?t=${encodeURIComponent(token)}`}
         poster={meta.hasThumbnail ? `${base}/thumbnail` : undefined}
-        controls
-        // Without download permission, drop the browser's own "Download" / "Save video as".
-        // A deterrent, not protection: whoever can watch the stream can record it.
-        controlsList={meta.allowDownload ? undefined : "nodownload"}
-        onContextMenu={meta.allowDownload ? undefined : (e) => e.preventDefault()}
-        playsInline
-        preload="metadata"
+        aspect={aspect}
+        allowDownload={meta.allowDownload}
+        resumeKey={meta.slug}
+        className="rounded-xl shadow-[0_30px_80px_-20px_rgb(0_0_0/0.8)] ring-1 ring-white/10"
       />
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-ink-3">L&apos;expéditeur voit si la vidéo a été lue, de façon anonyme.</p>

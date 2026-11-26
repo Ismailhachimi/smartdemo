@@ -211,6 +211,10 @@ function Player({ meta, token }: { meta: ShareMeta; token: string }) {
         src={`${base}/stream?t=${encodeURIComponent(token)}`}
         poster={meta.hasThumbnail ? `${base}/thumbnail` : undefined}
         controls
+        // Without download permission, drop the browser's own "Download" / "Save video as".
+        // A deterrent, not protection: whoever can watch the stream can record it.
+        controlsList={meta.allowDownload ? undefined : "nodownload"}
+        onContextMenu={meta.allowDownload ? undefined : (e) => e.preventDefault()}
         playsInline
         preload="metadata"
       />

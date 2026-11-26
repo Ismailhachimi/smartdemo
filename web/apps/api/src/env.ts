@@ -31,6 +31,12 @@ const schema = z
   /** Optional key prefix inside the bucket / container, e.g. "smartdemo/". */
   STORAGE_PREFIX: z.string().default(""),
   STORAGE_DIR: z.string().default("./storage"),
+  /** Adaptive streaming: "auto" makes HLS copies when ffmpeg is available, "off" serves MP4 only. */
+  STREAMING: z.enum(["auto", "off"]).default("auto"),
+  FFMPEG_PATH: z.string().default("ffmpeg"),
+  FFPROBE_PATH: z.string().default("ffprobe"),
+  /** Videos transcoded at the same time. Each one uses all CPU cores ffmpeg can get. */
+  STREAM_CONCURRENCY: z.coerce.number().int().min(1).max(8).default(1),
   S3_BUCKET: optional,
   S3_REGION: z.string().default("us-east-1"),
   /** Custom endpoint for S3-compatible services (R2, Scaleway, SeaweedFS…). Empty for AWS. */

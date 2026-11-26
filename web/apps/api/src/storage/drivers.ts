@@ -19,6 +19,10 @@ export interface StorageDriver {
   size(key: string): Promise<number | null>;
   get(key: string, range: ByteRange): Promise<Readable>;
   remove(key: string): Promise<void>;
+  /** Deletes every object whose key starts with `prefix` (e.g. "hls/<id>/"). */
+  removePrefix(prefix: string): Promise<void>;
+  /** Path on this machine, when the driver stores files locally (lets ffmpeg read in place). */
+  localPath?(key: string): string;
 }
 
 // ---------------------------------------------------------------------------
@@ -71,6 +75,14 @@ export class LocalDriver implements StorageDriver {
   async remove(key: string) {
     await rm(this.path(key), { force: true });
   }
+
+  async removePrefix(prefix: string) {
+    await rm(this.path(prefix), { recursive: true, force: true });
+  }
+
+  localPath(key: string) {
+    return this.path(key);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -111,7 +123,13 @@ export class S3Driver implements StorageDriver {
           ? { accessKeyId: this.o.accessKeyId, secretAccessKey: this.o.secretAccessKey }
           : undefined, // falls back to the AWS default chain (IAM role, env, profile)
     });
-    await this.client.send(new this.s3.HeadBucketCommand({ Bucket: this.o.bucket }));
+    try {
+      await this.client.send(new this.s3.HeadBucketCommand({ Bucket: this.o.bucket }));
+    } catch (err) {
+      // Fresh self-hosted S3 (SeaweedFS, Garage…): create the bucket. Elsewhere, report the error.
+      if ((err as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode !== 404) throw err;
+      await this.client.send(new this.s3.CreateBucketCommand({ Bucket: this.o.bucket }));
+    }
   }
 
   async put(key: string, body: Readable, contentType: string) {
@@ -144,6 +162,18 @@ export class S3Driver implements StorageDriver {
 
   async remove(key: string) {
     await this.client.send(new this.s3.DeleteObjectCommand({ Bucket: this.o.bucket, Key: this.k(key) }));
+  }
+
+  async removePrefix(prefix: string) {
+    let token: string | undefined;
+    do {
+      const page = await this.client.send(
+        new this.s3.ListObjectsV2Command({ Bucket: this.o.bucket, Prefix: this.k(prefix), ContinuationToken: token }),
+      );
+      const keys = (page.Contents ?? []).map((o) => ({ Key: o.Key! }));
+      if (keys.length) await this.client.send(new this.s3.DeleteObjectsCommand({ Bucket: this.o.bucket, Delete: { Objects: keys, Quiet: true } }));
+      token = page.IsTruncated ? page.NextContinuationToken : undefined;
+    } while (token);
   }
 }
 
@@ -194,5 +224,11 @@ export class AzureDriver implements StorageDriver {
 
   async remove(key: string) {
     await this.blob(key).deleteIfExists();
+  }
+
+  async removePrefix(prefix: string) {
+    for await (const b of this.container.listBlobsFlat({ prefix: this.o.prefix + prefix })) {
+      await this.container.getBlockBlobClient(b.name).deleteIfExists();
+    }
   }
 }

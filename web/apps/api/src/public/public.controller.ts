@@ -28,6 +28,7 @@ import { ZodPipe } from "../common/zod.pipe.js";
 import { env } from "../env.js";
 import { MailService } from "../mail/mail.service.js";
 import { StorageService } from "../storage/storage.service.js";
+import { StreamingService } from "../streaming/streaming.service.js";
 import { mimeOf } from "../videos/videos.controller.js";
 
 const ACCESS_TTL = 6 * 3600;
@@ -68,6 +69,7 @@ export class PublicController {
     @InjectDb() private readonly db: Database,
     private readonly storage: StorageService,
     private readonly mail: MailService,
+    private readonly streaming: StreamingService,
   ) {}
 
   private async resolve(slug: string): Promise<{ link: ShareLink; video: Video }> {
@@ -100,6 +102,7 @@ export class PublicController {
       height: video.height,
       createdAt: video.createdAt,
       allowDownload: link.allowDownload,
+      stream: video.streamStatus === "ready",
       hasThumbnail: !locked && Boolean(video.thumbnailKey),
       locked,
       accessToken: locked ? null : signAccess(env.APP_SECRET, `share:${slug}`, ACCESS_TTL),
@@ -143,6 +146,28 @@ export class PublicController {
       return;
     }
     await this.storage.send(req, res, video.thumbnailKey, mimeOf(video.thumbnailKey), { cache: "public, max-age=600" });
+  }
+
+  /** Adaptive streaming (HLS). Playlists carry the access token on to every segment. */
+  @Get("s/:slug/hls/master.m3u8")
+  async hlsMaster(@Param("slug") slug: string, @Query("t") t: string | undefined, @Req() req: Request, @Res() res: Response) {
+    const { video } = await this.resolve(slug);
+    this.requireAccess(slug, t);
+    await this.streaming.send(req, res, video, "master.m3u8", t);
+  }
+
+  @Get("s/:slug/hls/:variant/:file")
+  async hlsFile(
+    @Param("slug") slug: string,
+    @Param("variant") variant: string,
+    @Param("file") file: string,
+    @Query("t") t: string | undefined,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const { video } = await this.resolve(slug);
+    this.requireAccess(slug, t);
+    await this.streaming.send(req, res, video, `${variant}/${file}`, t);
   }
 
   /** Called when the share page opens. Returns the id used for progress reports. */

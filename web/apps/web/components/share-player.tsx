@@ -17,6 +17,8 @@ export interface ShareMeta {
   height: number | null;
   createdAt: string;
   allowDownload: boolean;
+  /** An adaptive (HLS) version is ready. */
+  stream: boolean;
   hasThumbnail: boolean;
   locked: boolean;
   accessToken: string | null;
@@ -231,6 +233,7 @@ function Player({ meta, token }: { meta: ShareMeta; token: string }) {
       <VideoPlayer
         videoRef={videoRef}
         src={`${base}/stream?t=${encodeURIComponent(token)}`}
+        hlsSrc={meta.stream ? `${base}/hls/master.m3u8?t=${encodeURIComponent(token)}` : undefined}
         poster={meta.hasThumbnail ? `${base}/thumbnail` : undefined}
         aspect={aspect}
         allowDownload={meta.allowDownload}

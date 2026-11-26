@@ -26,6 +26,7 @@ import { InjectDb, type Database } from "../common/db.module.js";
 import { ZodPipe } from "../common/zod.pipe.js";
 import { env } from "../env.js";
 import { StorageService } from "../storage/storage.service.js";
+import { StreamingService } from "../streaming/streaming.service.js";
 import { VideosService, shareUrl } from "./videos.service.js";
 
 const UploadQuery = z.object({
@@ -56,6 +57,7 @@ export class VideosController {
     @InjectDb() private readonly db: Database,
     private readonly videos: VideosService,
     private readonly storage: StorageService,
+    private readonly streaming: StreamingService,
   ) {}
 
   @Get()
@@ -103,6 +105,7 @@ export class VideosController {
       await this.storage.remove(storageKey);
       throw err;
     }
+    void this.streaming.enqueue(video.id);
     const share = await this.videos.createShare(user.id, video.id, {});
     const saved = await this.videos.owned(user.id, video.id);
     return { video: this.videos.toDto(saved), share, shareUrl: shareUrl(share.slug), dashboardUrl: `${env.APP_URL}/videos/${video.id}` };
@@ -142,6 +145,24 @@ export class VideosController {
   async stream(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string, @Req() req: Request, @Res() res: Response) {
     const video = await this.videos.owned(user.id, id);
     await this.storage.send(req, res, video.storageKey, video.mimeType);
+  }
+
+  /** Adaptive streaming (HLS) for the owner's player. */
+  @Get(":id/hls/master.m3u8")
+  async hlsMaster(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string, @Req() req: Request, @Res() res: Response) {
+    await this.streaming.send(req, res, await this.videos.owned(user.id, id), "master.m3u8");
+  }
+
+  @Get(":id/hls/:variant/:file")
+  async hlsFile(
+    @CurrentUser() user: AuthUser,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("variant") variant: string,
+    @Param("file") file: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    await this.streaming.send(req, res, await this.videos.owned(user.id, id), `${variant}/${file}`);
   }
 
   @Get(":id/thumbnail")

@@ -5,6 +5,7 @@ import { hashPassword, randomSlug } from "../common/crypto.js";
 import { InjectDb, type Database } from "../common/db.module.js";
 import { env } from "../env.js";
 import { StorageService } from "../storage/storage.service.js";
+import { StreamingService } from "../streaming/streaming.service.js";
 import { computeStats, describeUserAgent } from "./analytics.js";
 
 export interface ShareInput {
@@ -29,6 +30,7 @@ export class VideosService {
   constructor(
     @InjectDb() private readonly db: Database,
     private readonly storage: StorageService,
+    private readonly streaming: StreamingService,
   ) {}
 
   async owned(userId: string, id: string): Promise<Video> {
@@ -166,6 +168,7 @@ export class VideosService {
     await this.db.delete(videos).where(eq(videos.id, id));
     await this.storage.remove(video.storageKey);
     await this.storage.remove(video.thumbnailKey);
+    await this.streaming.remove(video.id);
   }
 
   async createShare(userId: string, videoId: string, input: ShareInput) {
@@ -222,6 +225,7 @@ export class VideosService {
       width: v.width,
       height: v.height,
       hasThumbnail: Boolean(v.thumbnailKey),
+      streamStatus: v.streamStatus,
       createdAt: v.createdAt,
       updatedAt: v.updatedAt,
     };

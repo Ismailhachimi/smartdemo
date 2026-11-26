@@ -1,5 +1,8 @@
 import { Global, Injectable, Logger, Module, type OnModuleInit, PayloadTooLargeException } from "@nestjs/common";
 import type { Request, Response } from "express";
+import { createReadStream, createWriteStream } from "node:fs";
+import { rm } from "node:fs/promises";
+import { join } from "node:path";
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { env } from "../env.js";
@@ -66,6 +69,42 @@ export class StorageService implements OnModuleInit {
 
   size(key: string) {
     return this.driver.size(key);
+  }
+
+  /** Uploads a file from this machine. */
+  async putFile(key: string, path: string, contentType: string) {
+    await this.driver.put(key, createReadStream(path), contentType);
+  }
+
+  /** Reads a small text object (HLS playlists). */
+  async readText(key: string): Promise<string | null> {
+    const size = await this.driver.size(key);
+    if (size === null) return null;
+    if (size === 0) return "";
+    const chunks: Buffer[] = [];
+    for await (const c of await this.driver.get(key, { start: 0, end: size - 1 })) chunks.push(Buffer.from(c));
+    return Buffer.concat(chunks).toString("utf8");
+  }
+
+  /**
+   * A local path ffmpeg can read: the file itself on local storage, otherwise a temporary
+   * copy (call `cleanup` when done).
+   */
+  async readablePath(key: string, tmpDir: string): Promise<{ path: string; cleanup: () => Promise<void> }> {
+    if (this.driver.localPath) return { path: this.driver.localPath(key), cleanup: async () => {} };
+    const size = await this.driver.size(key);
+    if (size === null) throw new Error(`Missing source ${key}`);
+    const path = join(tmpDir, "source");
+    await pipeline(await this.driver.get(key, { start: 0, end: size - 1 }), createWriteStream(path));
+    return { path, cleanup: () => rm(path, { force: true }) };
+  }
+
+  async removePrefix(prefix: string) {
+    try {
+      await this.driver.removePrefix(prefix);
+    } catch (err) {
+      this.logger.warn(`Could not delete ${prefix}: ${(err as Error).message}`);
+    }
   }
 
   async remove(key: string | null | undefined): Promise<void> {

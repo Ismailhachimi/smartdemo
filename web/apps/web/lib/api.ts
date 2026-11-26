@@ -44,6 +44,7 @@ export interface Video {
   width: number | null;
   height: number | null;
   hasThumbnail: boolean;
+  streamStatus: "none" | "queued" | "processing" | "ready" | "failed";
   createdAt: string;
   updatedAt: string;
 }

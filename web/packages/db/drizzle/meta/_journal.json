@@ -15,6 +15,13 @@
       "when": 1795657225536,
       "tag": "0001_reactions",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795657690655,
+      "tag": "0002_streaming",
+      "breakpoints": true
     }
   ]
 }

@@ -58,8 +58,8 @@ Leave it empty to let anyone create an account. The first account becomes admin.
 
 | `STORAGE_DRIVER` | Where videos go | Notes |
 |---|---|---|
-| `local` (default) | The `media` Docker volume (`STORAGE_DIR` with `pnpm dev`) | Works out of the box. Back up the volume. |
-| `s3` | AWS S3, Cloudflare R2, Scaleway, OVH, Backblaze B2, DigitalOcean Spaces, Wasabi, self-hosted SeaweedFS / Garage… | Set `S3_BUCKET` and credentials; `S3_ENDPOINT` for non-AWS. Without keys, the AWS default chain is used (IAM role, IRSA on Kubernetes). |
+| `local` (default) | The `media` Docker volume | Works out of the box. Back up the volume. |
+| `s3` | AWS S3, Cloudflare R2, Scaleway, OVH, Backblaze B2, DigitalOcean Spaces, Wasabi, or the bundled SeaweedFS (`--profile s3`, `S3_ENDPOINT=http://s3:8333`) | Set `S3_BUCKET` and credentials; `S3_ENDPOINT` for non-AWS. The bucket is created if missing. Without keys, the AWS default chain is used (IAM role, IRSA on Kubernetes). |
 | `azure` | Azure Blob Storage | Set `AZURE_STORAGE_CONNECTION_STRING`. The container is created if missing. |
 
 Media is always streamed through the API (with HTTP Range support), so password, expiry and
@@ -68,6 +68,17 @@ under a folder of the bucket.
 
 Moving from one driver to another does not migrate existing files: copy them over with the
 same keys (`videos/…`, `thumbnails/…`), for example with `rclone`.
+
+## Adaptive streaming
+
+After each upload, the API runs ffmpeg (included in its image) to make 1080p, 720p and 480p
+copies of the video, never above the source, cut into 4-second HLS segments and stored next
+to the MP4 (`hls/<id>/`). The player picks the quality the viewer's connection allows and offers
+a manual choice. Videos uploaded before streaming existed are converted when the API starts.
+
+Until a video is converted, or with `STREAMING=off`, the MP4 is played. Segments are served
+through the API like everything else, so share-link rules (password, expiry) still apply.
+`STREAM_CONCURRENCY` (default 1) limits how many videos are converted at once.
 
 ## Email
 
@@ -79,19 +90,30 @@ Preview the templates with `pnpm email:preview`.
 
 ## Development
 
+Everything runs in Docker, with live reload. You only need Docker.
+
 ```bash
 cd web
 cp .env.example .env          # set APP_URL=http://localhost:3000 and an APP_SECRET
-pnpm install
-docker compose -f docker-compose.dev.yml up -d   # Postgres on localhost:5433
-pnpm dev                      # API on :4000, web on :3000 (ports: API_PORT / WEB_PORT)
+docker compose -f docker-compose.dev.yml up
 ```
 
-Sign-in links appear in the `pnpm dev` output. In development the web app proxies `/api` to
-the API, uploads included (up to `MAX_UPLOAD_MB`), so the Mac app can use the web address.
+The web app is on `WEB_PORT` (3000), the API on `API_PORT` (4000), Postgres on
+`localhost:5433` for database tools. Your checkout is mounted into the container: saving a file
+recompiles and reloads. Dependencies live in Docker volumes, so there is nothing to install on
+your machine. Sign-in links appear in the compose output.
 
-Schema changes: edit `packages/db/src/schema.ts`, then `pnpm db:generate` and commit the new
-migration in `packages/db/drizzle/`. It is applied the next time the API starts.
+Add `--profile s3` (and `STORAGE_DRIVER=s3` in `.env`) to store videos in a local S3 server
+(SeaweedFS) instead of the `media` volume.
+
+Run tooling inside the container, for example:
+
+```bash
+docker compose -f docker-compose.dev.yml exec app pnpm typecheck
+docker compose -f docker-compose.dev.yml exec app pnpm db:generate   # after editing packages/db/src/schema.ts
+```
+
+Commit the new migration in `packages/db/drizzle/`: it is applied the next time the API starts.
 
 ## Connecting the Mac app
 
@@ -123,9 +145,12 @@ All routes are under `/api`. Authenticated routes accept the session cookie or
 | PUT | `/videos/:id/thumbnail` | Raw JPEG/PNG/WebP body |
 | GET / PATCH / DELETE | `/videos/:id` | Details with stats, rename, delete |
 | GET | `/videos/:id/stream` | Owner playback (Range) |
+| GET | `/videos/:id/hls/master.m3u8` · `/videos/:id/hls/:quality/:file` | Owner adaptive streaming |
 | POST | `/videos/:id/shares` | New share link |
 | PATCH / DELETE | `/shares/:id` | Update / delete a share link |
 | GET | `/public/s/:slug` | Public metadata (+ media token unless password-protected) |
 | POST | `/public/s/:slug/unlock` | `{ password }` → media token |
 | GET | `/public/s/:slug/stream?t=` · `/download?t=` · `/thumbnail` | Public media |
+| GET | `/public/s/:slug/hls/master.m3u8?t=` · `/public/s/:slug/hls/:quality/:file?t=` | Public adaptive streaming (playlists carry the token) |
+| GET / POST | `/public/s/:slug/reactions` | Emoji reactions pinned to a moment of the video |
 | POST | `/public/s/:slug/views` · `/public/views/:id/progress` | Viewer analytics |

@@ -18,6 +18,8 @@ const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull(
 
 export const userRole = pgEnum("user_role", ["admin", "member"]);
 export const videoStatus = pgEnum("video_status", ["uploading", "ready", "failed"]);
+/** Adaptive streaming (HLS) copy of a video, made by ffmpeg after upload. */
+export const streamStatus = pgEnum("stream_status", ["none", "queued", "processing", "ready", "failed"]);
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -81,6 +83,9 @@ export const videos = pgTable(
     height: integer("height"),
     storageKey: text("storage_key").notNull(),
     thumbnailKey: text("thumbnail_key"),
+    streamStatus: streamStatus("stream_status").notNull().default("none"),
+    /** Storage prefix of the HLS files ("hls/<id>/"), master playlist at <prefix>master.m3u8. */
+    streamKey: text("stream_key"),
     createdAt: createdAt(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

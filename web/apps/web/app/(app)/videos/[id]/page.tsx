@@ -39,6 +39,14 @@ export default function VideoPage() {
   }, [id]);
   useEffect(load, [load]);
 
+  // While the streaming copy is being made, check back until it is ready.
+  const preparing = data?.video.streamStatus === "queued" || data?.video.streamStatus === "processing";
+  useEffect(() => {
+    if (!preparing) return;
+    const t = setInterval(load, 4000);
+    return () => clearInterval(t);
+  }, [preparing, load]);
+
   // `?link=` (from the activity feed) preselects a prospect.
   useEffect(() => {
     setSelected(new URLSearchParams(window.location.search).get("link"));
@@ -72,6 +80,11 @@ export default function VideoPage() {
           <p className="tc mt-1.5 text-xs text-ink-3">
             {formatDate(video.createdAt)} · {formatDuration(video.durationSec)}
             {video.width && video.height ? ` · ${video.width}×${video.height}` : ""} · {formatBytes(video.sizeBytes)}
+            {(video.streamStatus === "queued" || video.streamStatus === "processing") && (
+              <span className="ml-2 inline-flex items-center gap-1.5 font-sans text-ink-2">
+                <span className="size-1.5 animate-rec rounded-full bg-amber" aria-hidden="true" /> Préparation du streaming…
+              </span>
+            )}
           </p>
         </div>
         <Menu label="Plus d'actions" trigger={<IconMore />}>
@@ -109,6 +122,7 @@ export default function VideoPage() {
             <VideoPlayer
               videoRef={videoRef}
               src={`/api/videos/${video.id}/stream`}
+              hlsSrc={video.streamStatus === "ready" ? `/api/videos/${video.id}/hls/master.m3u8` : undefined}
               poster={video.hasThumbnail ? `/api/videos/${video.id}/thumbnail?v=${encodeURIComponent(video.updatedAt)}` : undefined}
               aspect={video.width && video.height ? `${video.width} / ${video.height}` : "16 / 9"}
               onTimeUpdate={(el) => setPosition(el.duration ? el.currentTime / el.duration : null)}

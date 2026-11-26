@@ -20,6 +20,8 @@ RUN rm -rf node_modules apps/*/node_modules packages/*/node_modules \
   && pnpm install --frozen-lockfile --prod --filter "@smartdemo/api..."
 
 FROM node:24-alpine AS runtime
+# ffmpeg makes the adaptive streaming (HLS) copies of uploaded videos.
+RUN apk add --no-cache ffmpeg
 ENV NODE_ENV=production
 WORKDIR /repo
 COPY --from=build --chown=node:node /repo /repo

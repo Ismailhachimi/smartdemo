@@ -7,7 +7,7 @@
   },
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev",
+    "dev": "turbo run dev --env-mode=loose",
     "typecheck": "turbo run typecheck",
     "db:generate": "pnpm --filter @smartdemo/db generate",
     "db:migrate": "pnpm --filter @smartdemo/db migrate",

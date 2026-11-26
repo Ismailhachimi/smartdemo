@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 
 if (existsSync("../../.env")) process.loadEnvFile("../../.env");
 const port = process.env.WEB_PORT ?? "3000";
-const child = spawn("pnpm", ["exec", "next", "dev", "--port", port], {
+const child = spawn("pnpm", ["exec", "next", "dev", "--hostname", "0.0.0.0", "--port", port], {
   stdio: "inherit",
   shell: process.platform === "win32",
   env: process.env,

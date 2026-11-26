@@ -17,6 +17,7 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
  */
 export function VideoPlayer({
   src,
+  hlsSrc,
   poster,
   aspect = "16 / 9",
   videoRef,
@@ -27,7 +28,10 @@ export function VideoPlayer({
   onReact,
   className = "",
 }: {
+  /** MP4: the fallback, and what is played when there is no HLS. */
   src: string;
+  /** HLS master playlist (adaptive quality), when the server has made one. */
+  hlsSrc?: string;
   poster?: string;
   aspect?: string;
   videoRef?: RefObject<HTMLVideoElement | null>;
@@ -71,6 +75,11 @@ export function VideoPlayer({
   const [resumeAt, setResumeAt] = useState<number | null>(null);
   const [flash, setFlash] = useState<"play" | "pause" | null>(null);
   const [picker, setPicker] = useState(false);
+  const [levels, setLevels] = useState<number[]>([]); // heights, in hls.js level order
+  const [level, setLevel] = useState(-1); // -1 = automatic
+  const [playingHeight, setPlayingHeight] = useState<number | null>(null);
+  const [qualityMenu, setQualityMenu] = useState(false);
+  const hls = useRef<import("hls.js").default | null>(null);
   const [floats, setFloats] = useState<{ key: string; emoji: string; x: number }[]>([]);
 
   const idleTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -83,7 +92,51 @@ export function VideoPlayer({
     idleTimer.current = setTimeout(() => setIdle(true), HIDE_AFTER_MS);
   }, []);
   useEffect(() => () => clearTimeout(idleTimer.current), []);
-  const showControls = started && (!playing || !idle || rateMenu || scrubbing || picker);
+  const showControls = started && (!playing || !idle || rateMenu || qualityMenu || scrubbing || picker);
+
+  // ---- Adaptive streaming: hls.js where Media Source is available, native HLS on iPhone,
+  // the MP4 otherwise or when anything goes wrong.
+  useEffect(() => {
+    const v = video.current;
+    if (!v || !hlsSrc) return;
+    let cancelled = false;
+    void import("hls.js").then(({ default: Hls }) => {
+      if (cancelled) return;
+      if (Hls.isSupported()) {
+        const h = new Hls({ capLevelToPlayerSize: true, maxBufferLength: 30 });
+        hls.current = h;
+        h.on(Hls.Events.MANIFEST_PARSED, (_e, d) => {
+          const heights = d.levels.map((l) => l.height);
+          setLevels(heights);
+        });
+        h.on(Hls.Events.LEVEL_SWITCHED, (_e, d) => setPlayingHeight(h.levels[d.level]?.height ?? null));
+        h.on(Hls.Events.ERROR, (_e, d) => {
+          if (!d.fatal) return;
+          h.destroy();
+          hls.current = null;
+          setLevels([]);
+          v.src = src;
+        });
+        h.loadSource(hlsSrc);
+        h.attachMedia(v);
+      } else if (v.canPlayType("application/vnd.apple.mpegurl")) {
+        v.src = hlsSrc;
+      } else {
+        v.src = src;
+      }
+    });
+    return () => {
+      cancelled = true;
+      hls.current?.destroy();
+      hls.current = null;
+    };
+  }, [hlsSrc, src]);
+
+  const chooseLevel = (index: number) => {
+    if (hls.current) hls.current.currentLevel = index;
+    setLevel(index);
+    setQualityMenu(false);
+  };
 
   // ---- Reactions: the viewer's new ones rise from their spot on the bar ----
   const seen = useRef<Set<string> | null>(null);
@@ -269,7 +322,7 @@ export function VideoPlayer({
     >
       <video
         ref={setVideo}
-        src={src}
+        src={hlsSrc ? undefined : src}
         poster={poster}
         playsInline
         preload="metadata"
@@ -454,10 +507,51 @@ export function VideoPlayer({
                 )}
               </div>
             )}
+            {levels.length > 1 && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQualityMenu((o) => !o);
+                    setRateMenu(false);
+                  }}
+                  aria-label="Qualité"
+                  aria-expanded={qualityMenu}
+                  className="tc flex h-8 cursor-pointer items-center gap-1 rounded-md px-2 text-xs font-semibold text-white/90 transition-colors hover:bg-white/15 hover:text-white"
+                >
+                  {level === -1 ? "Auto" : `${levels[level]}p`}
+                  {(level === -1 ? playingHeight : levels[level]) != null && (level === -1 ? playingHeight! : levels[level]) >= 720 && (
+                    <span className="rounded-[3px] bg-white px-0.5 text-[8px] leading-tight font-bold text-black">HD</span>
+                  )}
+                </button>
+                {qualityMenu && (
+                  <div role="menu" className="absolute right-0 bottom-full mb-2 min-w-32 rounded-lg bg-black/85 p-1 ring-1 ring-white/10 backdrop-blur-md">
+                    {[-1, ...levels.map((_, i) => i).sort((a, b) => levels[b] - levels[a])].map((i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={i === level}
+                        onClick={() => chooseLevel(i)}
+                        className={`tc flex w-full cursor-pointer items-center justify-between gap-3 rounded-md px-2.5 py-1.5 text-xs ${
+                          i === level ? "bg-white/15 text-white" : "text-white/75 hover:bg-white/10 hover:text-white"
+                        }`}
+                      >
+                        {i === -1 ? `Auto${level === -1 && playingHeight ? ` · ${playingHeight}p` : ""}` : `${levels[i]}p`}
+                        {i === level && <span className="size-1.5 rounded-full bg-[#9d8cff]" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="relative">
               <button
                 type="button"
-                onClick={() => setRateMenu((o) => !o)}
+                onClick={() => {
+                  setRateMenu((o) => !o);
+                  setQualityMenu(false);
+                }}
                 aria-label="Vitesse de lecture"
                 aria-expanded={rateMenu}
                 className="tc h-8 min-w-11 cursor-pointer rounded-md px-2 text-xs font-semibold text-white/90 transition-colors hover:bg-white/15 hover:text-white"

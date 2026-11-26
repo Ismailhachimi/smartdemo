@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { IconDownload, IconLock } from "@/components/icons";
 import { Avatar, ErrorNote } from "@/components/ui";
 import { VideoPlayer } from "@/components/video-player";
+import { REACTION_EMOJIS, type PlayerReaction } from "@/lib/reactions";
 import { api } from "@/lib/api";
 import { formatDate, formatDuration } from "@/lib/format";
 
@@ -133,7 +134,24 @@ function Unlock({ slug, sender, onUnlock }: { slug: string; sender: string | nul
 
 function Player({ meta, token }: { meta: ShareMeta; token: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const viewIdRef = useRef<string | null>(null);
   const base = `/api/public/s/${meta.slug}`;
+  const [reactions, setReactions] = useState<PlayerReaction[]>([]);
+
+  useEffect(() => {
+    api<{ reactions: PlayerReaction[] }>(`/public/s/${meta.slug}/reactions?t=${encodeURIComponent(token)}&v=${encodeURIComponent(viewerId())}`)
+      .then((r) => setReactions(r.reactions))
+      .catch(() => {});
+  }, [meta.slug, token]);
+
+  const react = (emoji: string, atSec: number) => {
+    const id = `local-${crypto.randomUUID()}`;
+    setReactions((rs) => [...rs, { id, emoji, atSec, mine: true }]);
+    api(`/public/s/${meta.slug}/reactions`, {
+      method: "POST",
+      json: { viewerId: viewerId(), t: token, emoji, atSec, viewId: viewIdRef.current },
+    }).catch(() => setReactions((rs) => rs.filter((r) => r.id !== id)));
+  };
 
   useEffect(() => {
     const video = videoRef.current;
@@ -160,7 +178,10 @@ function Player({ meta, token }: { meta: ShareMeta; token: string }) {
     };
 
     startView(meta.slug, token)
-      .then((id) => (viewId = id))
+      .then((id) => {
+        viewId = id;
+        viewIdRef.current = id;
+      })
       .catch(() => {});
 
     const onTime = () => {
@@ -214,16 +235,32 @@ function Player({ meta, token }: { meta: ShareMeta; token: string }) {
         aspect={aspect}
         allowDownload={meta.allowDownload}
         resumeKey={meta.slug}
+        reactions={reactions}
+        onReact={react}
         className="rounded-xl shadow-[0_30px_80px_-20px_rgb(0_0_0/0.8)] ring-1 ring-white/10"
       />
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-ink-3">L&apos;expéditeur voit si la vidéo a été lue, de façon anonyme.</p>
+        <div className="flex items-center gap-1 rounded-full border border-border bg-surface/70 p-1 backdrop-blur" role="group" aria-label="Réagir à ce moment">
+          <span className="px-2 text-xs text-ink-3">Réagir</span>
+          {REACTION_EMOJIS.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              aria-label={`Réagir ${emoji} à ce moment de la vidéo`}
+              onClick={() => react(emoji, videoRef.current?.currentTime ?? 0)}
+              className="flex size-8 cursor-pointer items-center justify-center rounded-full text-lg transition-transform duration-150 hover:scale-125 hover:bg-surface-3 active:scale-95"
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
         {meta.allowDownload && (
           <a className="btn-secondary" href={`${base}/download?t=${encodeURIComponent(token)}`}>
             <IconDownload /> Télécharger
           </a>
         )}
       </div>
+      <p className="mt-3 text-xs text-ink-3">L&apos;expéditeur voit si la vidéo a été lue et vos réactions, de façon anonyme.</p>
     </div>
   );
 }

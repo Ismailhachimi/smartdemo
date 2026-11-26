@@ -17,9 +17,9 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
-import { RETENTION_BUCKETS, shareLinks, users, videos, views, type ShareLink, type Video } from "@smartdemo/db";
+import { REACTION_EMOJIS, RETENTION_BUCKETS, reactions, shareLinks, users, videos, views, type ShareLink, type Video } from "@smartdemo/db";
 import { videoViewedEmail } from "@smartdemo/emails";
-import { and, desc, eq, gt, isNull, lt, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, isNull, lt, or } from "drizzle-orm";
 import type { Request, Response } from "express";
 import { z } from "zod";
 import { signAccess, verifyAccess, verifyPassword } from "../common/crypto.js";
@@ -48,6 +48,16 @@ const ProgressBody = z.object({
   buckets: z.array(z.number().int().min(0).max(RETENTION_BUCKETS - 1)).max(RETENTION_BUCKETS),
   completed: z.boolean().optional(),
 });
+
+const ReactionBody = z.object({
+  viewerId: z.string().min(8).max(64),
+  t: z.string().max(200),
+  emoji: z.enum(REACTION_EMOJIS),
+  atSec: z.number().min(0).max(86_400),
+  viewId: z.uuid().nullish(),
+});
+/** Per viewer and link: enough to react freely, not enough to flood the timeline. */
+const MAX_REACTIONS_PER_VIEWER = 40;
 
 /** Everything a viewer can reach through a share link. No authentication, only the link. */
 @Controller("public")
@@ -189,6 +199,39 @@ export class PublicController {
         lastSeenAt: new Date(),
       })
       .where(eq(views.id, id));
+  }
+
+  /** Reactions on this link's timeline. `v` (the viewer id) marks the caller's own. */
+  @Get("s/:slug/reactions")
+  async listReactions(@Param("slug") slug: string, @Query("t") t: string | undefined, @Query("v") viewerId: string | undefined) {
+    const { link } = await this.resolve(slug);
+    this.requireAccess(slug, t);
+    const rows = await this.db
+      .select({ id: reactions.id, emoji: reactions.emoji, atSec: reactions.atSec, viewerId: reactions.viewerId })
+      .from(reactions)
+      .where(eq(reactions.shareLinkId, link.id))
+      .orderBy(asc(reactions.atSec))
+      .limit(500);
+    return { reactions: rows.map(({ viewerId: owner, ...r }) => ({ ...r, mine: Boolean(viewerId) && owner === viewerId })) };
+  }
+
+  @Post("s/:slug/reactions")
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  async react(@Param("slug") slug: string, @Body(new ZodPipe(ReactionBody)) body: z.infer<typeof ReactionBody>) {
+    const { link, video } = await this.resolve(slug);
+    this.requireAccess(slug, body.t);
+    const [{ n }] = await this.db
+      .select({ n: count() })
+      .from(reactions)
+      .where(and(eq(reactions.shareLinkId, link.id), eq(reactions.viewerId, body.viewerId)));
+    if (n >= MAX_REACTIONS_PER_VIEWER) throw new ForbiddenException("Trop de réactions sur cette vidéo.");
+    const atSec = video.durationSec ? Math.min(body.atSec, video.durationSec) : body.atSec;
+    const [row] = await this.db
+      .insert(reactions)
+      .values({ videoId: video.id, shareLinkId: link.id, viewId: body.viewId ?? null, viewerId: body.viewerId, emoji: body.emoji, atSec })
+      .returning({ id: reactions.id, emoji: reactions.emoji, atSec: reactions.atSec });
+    return { reaction: { ...row, mine: true } };
   }
 
   /** Emails the owner when a link is opened, at most once an hour per link. */

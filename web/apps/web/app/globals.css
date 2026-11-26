@@ -173,6 +173,12 @@
   to { opacity: 0; transform: scale(1.25); }
 }
 
+@keyframes sd-float {
+  0% { opacity: 0; transform: translate(-50%, 0) scale(0.5); }
+  15% { opacity: 1; transform: translate(-50%, -10px) scale(1.15); }
+  100% { opacity: 0; transform: translate(-50%, -150px) scale(1); }
+}
+
 .sd-volume {
   appearance: none;
   height: 4px;

@@ -91,8 +91,18 @@ export interface RecentView {
   referrer: string | null;
 }
 
+export interface VideoReaction {
+  id: string;
+  shareLinkId: string;
+  linkLabel: string | null;
+  emoji: string;
+  atSec: number;
+  createdAt: string;
+}
+
 export interface VideoDetail {
   video: Video;
+  reactions: VideoReaction[];
   shareLinks: ShareLink[];
   stats: Stats;
   recentViews: RecentView[];

@@ -140,6 +140,25 @@ export const videosRelations = relations(videos, ({ one, many }) => ({
   owner: one(users, { fields: [videos.ownerId], references: [users.id] }),
   shareLinks: many(shareLinks),
 }));
+/** The emojis viewers can react with, in picker order. */
+export const REACTION_EMOJIS = ["👍", "❤️", "🔥", "👏", "😮", "🤔"] as const;
+
+/** A viewer's emoji reaction, pinned to a moment of the video. */
+export const reactions = pgTable(
+  "reactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    videoId: uuid("video_id").notNull().references(() => videos.id, { onDelete: "cascade" }),
+    shareLinkId: uuid("share_link_id").notNull().references(() => shareLinks.id, { onDelete: "cascade" }),
+    viewId: uuid("view_id").references(() => views.id, { onDelete: "set null" }),
+    viewerId: text("viewer_id").notNull(),
+    emoji: text("emoji").notNull(),
+    atSec: real("at_sec").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("reactions_video_idx").on(t.videoId, t.atSec), index("reactions_share_idx").on(t.shareLinkId)],
+);
+
 export const shareLinksRelations = relations(shareLinks, ({ one, many }) => ({
   video: one(videos, { fields: [shareLinks.videoId], references: [videos.id] }),
   views: many(views),
@@ -152,3 +171,4 @@ export type User = typeof users.$inferSelect;
 export type Video = typeof videos.$inferSelect;
 export type ShareLink = typeof shareLinks.$inferSelect;
 export type View = typeof views.$inferSelect;
+export type Reaction = typeof reactions.$inferSelect;

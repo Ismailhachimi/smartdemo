@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { RETENTION_BUCKETS, shareLinks, videos, views, type ShareLink, type Video } from "@smartdemo/db";
+import { RETENTION_BUCKETS, reactions, shareLinks, videos, views, type ShareLink, type Video } from "@smartdemo/db";
 import { and, asc, count, desc, eq, getTableColumns, gte, inArray, max } from "drizzle-orm";
 import { hashPassword, randomSlug } from "../common/crypto.js";
 import { InjectDb, type Database } from "../common/db.module.js";
@@ -85,8 +85,15 @@ export class VideosService {
       .where(eq(views.videoId, id))
       .orderBy(desc(views.startedAt));
 
+    const reactionRows = await this.db
+      .select({ id: reactions.id, shareLinkId: reactions.shareLinkId, emoji: reactions.emoji, atSec: reactions.atSec, createdAt: reactions.createdAt })
+      .from(reactions)
+      .where(eq(reactions.videoId, id))
+      .orderBy(asc(reactions.atSec));
+
     return {
       video: this.toDto(video),
+      reactions: reactionRows.map((r) => ({ ...r, linkLabel: links.find((l) => l.id === r.shareLinkId)?.label ?? null })),
       shareLinks: links.map((l) => {
         const own = viewRows.filter((v) => v.shareLinkId === l.id);
         return { ...this.shareDto(l), stats: computeStats(own) };

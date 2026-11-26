@@ -50,6 +50,7 @@ export default function VideoPage() {
   const link = data.shareLinks.find((l) => l.id === selected) ?? null;
   const stats = link?.stats ?? data.stats;
   const views = link ? data.recentViews.filter((v) => v.shareLinkId === link.id) : data.recentViews;
+  const reactions = link ? data.reactions.filter((r) => r.shareLinkId === link.id) : data.reactions;
 
   const seek = (fraction: number) => {
     const el = videoRef.current;
@@ -111,6 +112,7 @@ export default function VideoPage() {
               poster={video.hasThumbnail ? `/api/videos/${video.id}/thumbnail?v=${encodeURIComponent(video.updatedAt)}` : undefined}
               aspect={video.width && video.height ? `${video.width} / ${video.height}` : "16 / 9"}
               onTimeUpdate={(el) => setPosition(el.duration ? el.currentTime / el.duration : null)}
+              reactions={reactions.map((r) => ({ id: r.id, emoji: r.emoji, atSec: r.atSec, label: linkName(r.linkLabel) }))}
             />
             <div className="border-t border-border px-4 pt-3.5 pb-3">
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
@@ -151,6 +153,34 @@ export default function VideoPage() {
             />
           </Section>
 
+          <Section
+            title="Réactions"
+            description={reactions.length ? "Épinglées au moment de la vidéo où elles ont été faites. Clique pour y aller." : undefined}
+          >
+            {reactions.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-border-strong px-4 py-6 text-center text-[13px] text-ink-2">
+                Pas encore de réaction. Tes prospects peuvent réagir avec un emoji pendant qu&apos;ils regardent.
+              </p>
+            ) : (
+              <ul className="panel divide-y divide-border">
+                {reactions.map((r) => (
+                  <li key={r.id}>
+                    <button
+                      type="button"
+                      onClick={() => seek(r.atSec / (video.durationSec || 1))}
+                      className="flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-surface-2/60"
+                    >
+                      <span className="tc w-12 shrink-0 text-xs text-ink-3">{formatDuration(r.atSec)}</span>
+                      <span className="text-xl leading-none">{r.emoji}</span>
+                      <span className="min-w-0 flex-1 truncate font-medium">{linkName(r.linkLabel)}</span>
+                      <span className="shrink-0 text-xs text-ink-3">{timeAgo(r.createdAt)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Section>
+
           <Section title="Vues" description={link ? `Sur le lien « ${linkName(link.label)} »` : "Toutes les ouvertures, la plus récente en premier."}>
             {views.length === 0 ? (
               <Empty icon={<IconActivity />} title="Pas encore de vue">
@@ -159,7 +189,7 @@ export default function VideoPage() {
             ) : (
               <ul className="panel divide-y divide-border">
                 {views.map((v) => (
-                  <li key={v.id} className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1.5 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_180px_88px]">
+                  <li key={v.id} className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1.5 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_180px_120px]">
                     <div className="min-w-0">
                       <div className="truncate font-medium">{linkName(v.linkLabel)}</div>
                       <div className="truncate text-xs text-ink-3">{v.device}</div>

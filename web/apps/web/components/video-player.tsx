@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject } from "react";
-import { IconMaximize, IconMinimize, IconPause, IconPlay, IconReplay, IconVolume, IconVolumeX } from "@/components/icons";
+import { IconMaximize, IconMinimize, IconPause, IconPlay, IconReplay, IconSmile, IconVolume, IconVolumeX } from "@/components/icons";
 import { formatDuration } from "@/lib/format";
+import { REACTION_EMOJIS, type PlayerReaction } from "@/lib/reactions";
 
 const RATES = [1, 1.25, 1.5, 2];
 const HIDE_AFTER_MS = 2500;
@@ -22,6 +23,8 @@ export function VideoPlayer({
   allowDownload = true,
   resumeKey,
   onTimeUpdate,
+  reactions = [],
+  onReact,
   className = "",
 }: {
   src: string;
@@ -32,6 +35,10 @@ export function VideoPlayer({
   /** Remember the position in this browser and offer to resume (share page). */
   resumeKey?: string;
   onTimeUpdate?: (video: HTMLVideoElement) => void;
+  /** Shown on the progress bar. */
+  reactions?: PlayerReaction[];
+  /** When set, viewers get an emoji picker that reacts at the current time. */
+  onReact?: (emoji: string, atSec: number) => void;
   className?: string;
 }) {
   const box = useRef<HTMLDivElement>(null);
@@ -63,6 +70,8 @@ export function VideoPlayer({
   const [scrubbing, setScrubbing] = useState(false);
   const [resumeAt, setResumeAt] = useState<number | null>(null);
   const [flash, setFlash] = useState<"play" | "pause" | null>(null);
+  const [picker, setPicker] = useState(false);
+  const [floats, setFloats] = useState<{ key: string; emoji: string; x: number }[]>([]);
 
   const idleTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const lastSaved = useRef(0);
@@ -74,7 +83,33 @@ export function VideoPlayer({
     idleTimer.current = setTimeout(() => setIdle(true), HIDE_AFTER_MS);
   }, []);
   useEffect(() => () => clearTimeout(idleTimer.current), []);
-  const showControls = started && (!playing || !idle || rateMenu || scrubbing);
+  const showControls = started && (!playing || !idle || rateMenu || scrubbing || picker);
+
+  // ---- Reactions: the viewer's new ones rise from their spot on the bar ----
+  const seen = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (seen.current === null) {
+      seen.current = new Set(reactions.map((r) => r.id));
+      return;
+    }
+    const fresh = reactions.filter((r) => !seen.current!.has(r.id));
+    fresh.forEach((r) => seen.current!.add(r.id));
+    const mine = fresh.filter((r) => r.mine);
+    if (!mine.length) return;
+    const d = video.current?.duration || duration || 1;
+    setFloats((f) => [...f, ...mine.map((r) => ({ key: r.id, emoji: r.emoji, x: clamp(r.atSec / d, 0.04, 0.96) }))]);
+    const keys = new Set(mine.map((r) => r.id));
+    // Not cleared on re-run: a quick second reaction must not keep the first one on screen.
+    setTimeout(() => setFloats((f) => f.filter((x) => !keys.has(x.key))), 1600);
+  }, [reactions, duration]);
+
+  const pickerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!picker) return;
+    const onDown = (e: MouseEvent) => !pickerRef.current?.contains(e.target as Node) && setPicker(false);
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [picker]);
 
   // ---- Actions ----
   const toggle = useCallback(() => {
@@ -329,12 +364,24 @@ export function VideoPlayer({
         </div>
       )}
 
+      {floats.map((f) => (
+        <span
+          key={f.key}
+          aria-hidden="true"
+          className="pointer-events-none absolute bottom-16 z-10 animate-[sd-float_1.6s_ease-out_forwards] text-4xl drop-shadow-[0_4px_12px_rgb(0_0_0/0.4)]"
+          style={{ left: `${f.x * 100}%` }}
+        >
+          {f.emoji}
+        </span>
+      ))}
+
       {/* Control bar */}
       <div
         className={`pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/35 to-transparent px-3 pt-12 pb-2 transition-opacity duration-300 sm:px-4 ${
           showControls ? "opacity-100 [&>*]:pointer-events-auto" : "opacity-0"
         }`}
       >
+        {reactions.length > 0 && duration > 0 && <ReactionMarkers reactions={reactions} duration={duration} onSeek={seek} />}
         <Scrubber
           time={time}
           duration={duration}
@@ -380,6 +427,33 @@ export function VideoPlayer({
           </span>
 
           <div className="ml-auto flex items-center gap-1">
+            {onReact && (
+              <div ref={pickerRef} className="relative">
+                <ControlButton label="Réagir" onClick={() => setPicker((o) => !o)}>
+                  <IconSmile />
+                </ControlButton>
+                {picker && (
+                  <div
+                    role="menu"
+                    aria-label="Réactions"
+                    className="absolute right-0 bottom-full mb-2 flex gap-0.5 rounded-full bg-black/80 p-1 ring-1 ring-white/15 backdrop-blur-md"
+                  >
+                    {REACTION_EMOJIS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        role="menuitem"
+                        aria-label={`Réagir ${emoji}`}
+                        onClick={() => onReact(emoji, video.current?.currentTime ?? time)}
+                        className="flex size-9 cursor-pointer items-center justify-center rounded-full text-xl transition-transform duration-150 hover:scale-125 hover:bg-white/10 active:scale-95"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="relative">
               <button
                 type="button"
@@ -513,6 +587,64 @@ function Scrubber({
           {formatDuration(hover * duration)}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Reactions pinned above the progress bar; nearby ones are grouped. Click to jump there. */
+function ReactionMarkers({ reactions, duration, onSeek }: { reactions: PlayerReaction[]; duration: number; onSeek: (sec: number) => void }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const groups: { atSec: number; items: PlayerReaction[] }[] = [];
+  for (const r of [...reactions].sort((a, b) => a.atSec - b.atSec)) {
+    const last = groups.at(-1);
+    if (last && (r.atSec - last.atSec) / duration < 0.03) last.items.push(r);
+    else groups.push({ atSec: r.atSec, items: [r] });
+  }
+  const counts = (items: PlayerReaction[]) => {
+    const m = new Map<string, number>();
+    items.forEach((r) => m.set(r.emoji, (m.get(r.emoji) ?? 0) + 1));
+    return [...m].sort((a, b) => b[1] - a[1]);
+  };
+
+  return (
+    <div className="relative mb-0.5 h-6">
+      {groups.map((g, i) => {
+        const c = counts(g.items);
+        const who = [...new Set(g.items.map((r) => r.label).filter(Boolean))] as string[];
+        return (
+          <button
+            key={g.items[0].id}
+            type="button"
+            onClick={() => onSeek(g.atSec)}
+            onMouseEnter={() => setHover(i)}
+            onMouseLeave={() => setHover(null)}
+            onFocus={() => setHover(i)}
+            onBlur={() => setHover(null)}
+            aria-label={`${c.map(([e, n]) => `${e} ${n}`).join(", ")} à ${formatDuration(g.atSec)}`}
+            className="absolute bottom-0 flex -translate-x-1/2 cursor-pointer items-center gap-0.5 rounded-full px-1 py-0.5 text-[15px] leading-none transition-transform duration-150 hover:-translate-y-0.5 hover:scale-110"
+            style={{ left: `${(g.atSec / duration) * 100}%` }}
+          >
+            <span className="drop-shadow-[0_1px_3px_rgb(0_0_0/0.6)]">{c[0][0]}</span>
+            {g.items.length > 1 && <span className="tc rounded-full bg-black/60 px-1 text-[9px] font-semibold text-white">{g.items.length}</span>}
+            {hover === i && (
+              <span className="pointer-events-none absolute bottom-full left-1/2 mb-1.5 -translate-x-1/2 rounded-lg bg-black/90 px-2.5 py-1.5 text-left text-xs whitespace-nowrap text-white ring-1 ring-white/10">
+                <span className="block text-sm">
+                  {c.map(([e, n]) => (
+                    <span key={e} className="mr-1.5">
+                      {e}
+                      {n > 1 && <span className="tc ml-0.5 text-[10px] text-white/70">×{n}</span>}
+                    </span>
+                  ))}
+                </span>
+                <span className="tc block text-[11px] text-white/60">
+                  {formatDuration(g.atSec)}
+                  {who.length > 0 && ` · ${who.join(", ")}`}
+                </span>
+              </span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }

@@ -196,3 +196,8 @@
   background: #fff;
   box-shadow: 0 0 0 3px rgb(106 77 255 / 0.45);
 }
+
+/* While a player fills the window, page sections must not trap it in their stacking context. */
+.sd-player-fill .isolate {
+  isolation: auto;
+}

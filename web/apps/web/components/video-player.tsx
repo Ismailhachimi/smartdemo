@@ -54,7 +54,10 @@ export function VideoPlayer({
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(1);
   const [rate, setRate] = useState(1);
-  const [fullscreen, setFullscreen] = useState(false);
+  const [nativeFullscreen, setNativeFullscreen] = useState(false);
+  /** Fills the window when real fullscreen is refused or never answers (embedded browsers, iframes). */
+  const [windowFill, setWindowFill] = useState(false);
+  const fullscreen = nativeFullscreen || windowFill;
   const [idle, setIdle] = useState(false);
   const [rateMenu, setRateMenu] = useState(false);
   const [scrubbing, setScrubbing] = useState(false);
@@ -105,16 +108,57 @@ export function VideoPlayer({
   const toggleFullscreen = useCallback(() => {
     const el = box.current;
     const v = video.current as (HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null;
-    if (document.fullscreenElement) void document.exitFullscreen();
-    else if (el?.requestFullscreen) void el.requestFullscreen();
-    else v?.webkitEnterFullscreen?.(); // iPhone Safari
-  }, []);
+    if (document.fullscreenElement) {
+      void document.exitFullscreen();
+      return;
+    }
+    if (windowFill) {
+      setWindowFill(false);
+      return;
+    }
+    if (el?.requestFullscreen && document.fullscreenEnabled) {
+      let settled = false;
+      el.requestFullscreen().then(
+        () => (settled = true),
+        () => {
+          settled = true;
+          setWindowFill(true);
+        },
+      );
+      setTimeout(() => !settled && !document.fullscreenElement && setWindowFill(true), 500);
+    } else if (v?.webkitEnterFullscreen) {
+      v.webkitEnterFullscreen(); // iPhone Safari: the system player
+    } else {
+      setWindowFill(true);
+    }
+  }, [windowFill]);
 
   useEffect(() => {
-    const onChange = () => setFullscreen(document.fullscreenElement === box.current);
+    const onChange = () => {
+      const on = document.fullscreenElement === box.current;
+      setNativeFullscreen(on);
+      if (on) setWindowFill(false);
+    };
     document.addEventListener("fullscreenchange", onChange);
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
+
+  // Window fill: no page scroll behind the player, and Escape leaves it.
+  useEffect(() => {
+    if (!windowFill) return;
+    const root = document.documentElement;
+    const prev = root.style.overflow;
+    root.style.overflow = "hidden";
+    root.classList.add("sd-player-fill"); // lets the player rise above the sidebar (globals.css)
+    const onKey = (e: globalThis.KeyboardEvent) => e.key === "Escape" && setWindowFill(false);
+    document.addEventListener("keydown", onKey);
+    box.current?.focus();
+    return () => {
+      root.style.overflow = prev;
+      root.classList.remove("sd-player-fill");
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [windowFill]);
 
   useEffect(() => {
     if (!flash) return;
@@ -183,7 +227,7 @@ export function VideoPlayer({
       onPointerMove={wake}
       onContextMenu={allowDownload ? undefined : (e) => e.preventDefault()}
       aria-label="Lecteur vidéo"
-      className={`group/player relative isolate overflow-hidden bg-black outline-none select-none focus-visible:ring-2 focus-visible:ring-brand ${
+      className={`group/player isolate overflow-hidden ${windowFill ? "fixed inset-0 z-[100]" : "relative"} bg-black outline-none select-none focus-visible:ring-2 focus-visible:ring-brand ${
         playing && idle && !rateMenu ? "cursor-none" : ""
       } ${fullscreen ? "" : className}`}
       style={fullscreen ? undefined : { aspectRatio: aspect }}
@@ -240,19 +284,20 @@ export function VideoPlayer({
         onRateChange={(e) => setRate(e.currentTarget.playbackRate)}
       />
 
-      {/* Before the first play, and at the end: one big button. */}
+      {/* Before the first play, and at the end: a frosted pill that says what you get. */}
       {(!started || ended) && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/25">
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-t from-black/40 via-black/10 to-black/5">
           <button
             type="button"
             onClick={toggle}
-            aria-label={ended ? "Revoir" : "Lire la vidéo"}
-            className="group/play flex flex-col items-center gap-3 outline-none"
+            aria-label={ended ? "Revoir la vidéo" : "Lire la vidéo"}
+            className="group/play flex h-12 items-center gap-3 rounded-full bg-black/40 py-1.5 pr-5 pl-1.5 text-white shadow-[0_10px_30px_-10px_rgb(0_0_0/0.6)] ring-1 ring-white/20 backdrop-blur-xl transition-[background-color,transform] duration-200 outline-none hover:bg-black/55 focus-visible:ring-2 focus-visible:ring-white active:scale-[0.97] sm:h-14 sm:pr-6 sm:pl-2"
           >
-            <span className="flex size-[76px] items-center justify-center rounded-[22px] bg-gradient-to-br from-[#6a4dff] to-[#3b1fd6] text-white shadow-[0_12px_40px_-8px_rgb(91_62_241/0.8),inset_0_1px_0_rgb(255_255_255/0.25)] ring-1 ring-white/20 transition-transform duration-200 group-hover/play:scale-105 group-focus-visible/play:ring-4 group-active/play:scale-95 [&_svg]:size-8">
-              {ended ? <IconReplay /> : <IconPlay className="translate-x-[2px]" />}
+            <span className="flex size-9 items-center justify-center rounded-full bg-white text-black transition-transform duration-200 group-hover/play:scale-105 sm:size-10 [&_svg]:size-4 sm:[&_svg]:size-[18px]">
+              {ended ? <IconReplay /> : <IconPlay className="translate-x-px" />}
             </span>
-            {ended && <span className="text-sm font-medium text-white drop-shadow">Revoir</span>}
+            <span className="text-[15px] font-medium tracking-tight">{ended ? "Revoir" : "Regarder"}</span>
+            {!ended && duration > 0 && <span className="tc text-[13px] text-white/60">{formatDuration(duration)}</span>}
           </button>
           {!started && resumeAt != null && (
             <button

@@ -48,9 +48,21 @@ final class CloudConfig {
         get { d.string(forKey: "serverURL").flatMap(URL.init(string:)) }
         set { d.set(newValue?.absoluteString, forKey: "serverURL") }
     }
+    /// Read from the keychain once, then kept in memory: the menu checks it on every open, and
+    /// each keychain read can raise an access prompt (for example after the app's signature
+    /// changed), which would then pop up on every click.
+    private var cachedToken: String??
     var token: String? {
-        get { Keychain.get("api-token") }
-        set { Keychain.set("api-token", newValue) }
+        get {
+            if let cachedToken { return cachedToken }
+            let value = Keychain.get("api-token")
+            cachedToken = .some(value)
+            return value
+        }
+        set {
+            Keychain.set("api-token", newValue)
+            cachedToken = .some(newValue)
+        }
     }
     var account: String? {
         get { d.string(forKey: "serverAccount") }
